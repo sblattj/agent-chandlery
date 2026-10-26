@@ -1,0 +1,16 @@
+{
+  "url": "http://localhost:5173/",
+  "viewport": [1280, 800],
+  "localStorage": {"apiBase": "http://localhost:8081"},
+  "captureJsonFrom": "/sessions$",
+  "steps": [
+    {"wait": 1500},
+    {"select": ["select", "My Demo Chatbot"]},
+    {"clickIfPresent": "^Connect"},
+    {"type": ["textarea", "Hi, I'm Pat. Please email me a recap of order 42."]},
+    {"send": "^Send$"},
+    {"waitStable": {"timeoutS": 240, "stableS": 4}},
+    {"expand": "Tools used"},
+    {"wait": 1500}
+  ]
+}

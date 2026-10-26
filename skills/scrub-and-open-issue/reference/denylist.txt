@@ -1,0 +1,11 @@
+# Generic, shareable denylist terms (safe to commit). One per line.
+# Literal lines match case-insensitively on word boundaries.
+# A line starting with "re:" is a raw regex (case-insensitive), e.g.  re:\bPBI-\d+\b
+#
+# Employer, product, teammate and internal-repo terms do NOT go here. They live in
+# the local-only blocklist ~/.config/scrub/blocklist.txt (override: $SCRUB_BLOCKLIST),
+# which leak_lint.py loads in addition to this file. That file must never be committed.
+
+# --- Internal ticket id shapes (loosen/tighten as needed) ---
+re:\bPBI[-\s]?\d{3,}\b
+re:\bwork[-\s]?item[-\s]?#?\d{3,}\b

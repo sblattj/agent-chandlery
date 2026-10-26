@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hosted vs self-hosted CI runner</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1c1d21; --ink-2: #5b5e66; --line: #d9d7cf;
+    --aws: #b85f00; --aws-bg: #fff2e0;
+    --app: #2352b8; --app-bg: #e8efff;
+    --warn: #b3261e; --warn-bg: #fdecea;
+    --neutral-bg: #f0efea;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131417; --card: #1b1d21; --ink: #ecebe6; --ink-2: #a2a5ac; --line: #33363c;
+      --aws: #f2a44f; --aws-bg: #33250f;
+      --app: #86a9ff; --app-bg: #17223b;
+      --warn: #ff8f85; --warn-bg: #3a1b18;
+      --neutral-bg: #23252a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 40px 20px 64px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 760px; margin: 0 0 24px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 16px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin-bottom: 24px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 0 0 24px; font-size: 13px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 16px; height: 16px; border-radius: 4px; border: 2px solid; display: inline-block; }
+  .sw.aws { background: var(--aws-bg); border-color: var(--aws); }
+  .sw.app { background: var(--app-bg); border-color: var(--app); }
+  .sw.out { background: transparent; border-color: var(--ink-2); border-style: dashed; }
+  .sw.ext { background: var(--neutral-bg); border-color: var(--line); }
+  .sw.warn { background: var(--warn-bg); border-color: var(--warn); }
+  .scroll { overflow-x: auto; }
+  svg { display: block; width: 100%; min-width: 820px; height: auto; }
+  svg text { fill: var(--ink); font-family: inherit; white-space: pre; }
+  svg .t-title { font-size: 17px; font-weight: 650; }
+  svg .t-strong { font-size: 13.5px; font-weight: 600; }
+  svg .t-body { font-size: 12.5px; fill: var(--ink-2); }
+  svg .t-mono { font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; fill: var(--ink-2); }
+  svg .t-edge { font-size: 12px; fill: var(--ink-2); }
+  svg .t-warn { fill: var(--warn); }
+  svg .b-ext { fill: var(--neutral-bg); stroke: var(--line); stroke-width: 1.5; }
+  svg .b-aws { fill: var(--aws-bg); stroke: var(--aws); stroke-width: 2; }
+  svg .b-app { fill: var(--app-bg); stroke: var(--app); stroke-width: 1.5; }
+  svg .b-chip { fill: var(--card); stroke: var(--line); stroke-width: 1; }
+  svg .b-chip-app { fill: var(--card); stroke: var(--app); stroke-width: 1.5; }
+  svg .b-chip-aws { fill: var(--card); stroke: var(--aws); stroke-width: 1.5; }
+  svg .b-warn { fill: var(--warn-bg); stroke: var(--warn); stroke-width: 1.5; }
+  svg .b-out { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 6 5; }
+  svg .edge { stroke: var(--ink-2); stroke-width: 1.8; fill: none; }
+  svg .edge.dash { stroke-dasharray: 5 5; }
+  svg .edge.warn { stroke: var(--warn); }
+  svg .head { fill: var(--ink-2); }
+  svg .head-warn { fill: var(--warn); }
+  svg .num { fill: var(--aws); font-weight: 700; font-size: 13px; }
+  svg .num-a { fill: var(--app); font-weight: 700; font-size: 13px; }
+  .caption { margin: 14px 0 0; color: var(--ink-2); font-size: 14px; }
+  .st { margin: 10px 0 0; padding: 10px 14px; border-left: 3px solid var(--app); background: var(--app-bg); border-radius: 0 8px 8px 0; font-size: 14px; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); font-weight: 600; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; background: var(--neutral-bg); padding: 1px 5px; border-radius: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+  ol.steps { margin: 0; padding-left: 22px; }
+  ol.steps li { margin-bottom: 6px; }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
+  .tag.aws { color: var(--aws); background: var(--aws-bg); }
+  .tag.app { color: var(--app); background: var(--app-bg); }
+  .tag.ext { color: var(--ink-2); background: var(--neutral-bg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>A GitHub-hosted runner vs a self-hosted runner</h1>
+  <p class="lede">Both run the same workflow YAML. The difference is whose machine the steps run on: a hosted runner is a fresh VM GitHub throws away after each job. A self-hosted runner is <em>your</em> box, so it can reach your private network, and it keeps whatever the last job left behind.</p>
+
+  <div class="legend">
+    <span><i class="sw aws"></i>GitHub runs it</span>
+    <span><i class="sw app"></i>You own it (repo or your machine)</span>
+    <span><i class="sw out"></i>Set up outside the repo</span>
+    <span><i class="sw ext"></i>External / caller</span>
+    <span><i class="sw warn"></i>Known gap</span>
+  </div>
+
+  <!-- ============ HOSTED ============ -->
+  <section class="card">
+    <h2>1. GitHub-hosted runner</h2>
+    <p class="sub"><code>runs-on: ubuntu-latest</code>. You write YAML, GitHub brings the machine.</p>
+    <div class="scroll">
+      <svg viewBox="0 0 960 320" role="img" aria-label="A push triggers GitHub Actions, which boots a clean VM, runs the steps and reports to a registry, a public deploy target and the PR check">
+        <defs><marker id="h1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="b-ext" x="20" y="118" width="160" height="84" rx="10"/>
+        <text class="t-strong" x="100" y="152" text-anchor="middle">Developer</text>
+        <text class="t-body" x="100" y="172" text-anchor="middle">pushes a commit</text>
+        <path class="edge" d="M180,160 L278,160" marker-end="url(#h1)"/>
+        <text class="t-mono" x="229" y="148" text-anchor="middle">on: push</text>
+        <text class="t-edge" x="229" y="180" text-anchor="middle">event</text>
+        <rect class="b-aws" x="280" y="28" width="340" height="264" rx="14"/>
+        <text class="t-title" x="300" y="58">GitHub-hosted runner</text>
+        <text class="t-body" x="300" y="78">a fresh VM per job, then thrown away</text>
+        <rect class="b-chip-aws" x="300" y="94" width="300" height="38" rx="8"/>
+        <text class="t-strong" x="316" y="118">1  Read the workflow YAML</text>
+        <rect class="b-chip-aws" x="300" y="140" width="300" height="38" rx="8"/>
+        <text class="t-strong" x="316" y="164">2  Boot a clean ubuntu-latest VM</text>
+        <rect class="b-chip-aws" x="300" y="186" width="300" height="38" rx="8"/>
+        <text class="t-strong" x="316" y="210">3  Run the steps with repo secrets</text>
+        <rect class="b-chip-aws" x="300" y="232" width="300" height="38" rx="8"/>
+        <text class="t-strong" x="316" y="256">4  Upload logs, destroy the VM</text>
+        <path class="edge" d="M620,160 C670,160 670,80 718,80" marker-end="url(#h1)"/>
+        <path class="edge" d="M620,160 L718,160" marker-end="url(#h1)"/>
+        <path class="edge" d="M620,160 C670,160 670,240 718,240" marker-end="url(#h1)"/>
+        <rect class="b-ext" x="720" y="50" width="220" height="60" rx="10"/>
+        <text class="t-strong" x="738" y="76">Package registry</text>
+        <text class="t-mono" x="738" y="96">npm publish</text>
+        <rect class="b-ext" x="720" y="130" width="220" height="60" rx="10"/>
+        <text class="t-strong" x="738" y="156">Public deploy target</text>
+        <text class="t-mono" x="738" y="176">on the public internet</text>
+        <rect class="b-ext" x="720" y="210" width="220" height="60" rx="10"/>
+        <text class="t-strong" x="738" y="236">PR check</text>
+        <text class="t-mono" x="738" y="256">pass / fail on the commit</text>
+      </svg>
+    </div>
+    <p class="caption">Every job starts on a clean machine, so nothing leaks between jobs. The price: it can only reach what is on the public internet.</p>
+  </section>
+
+  <!-- ============ SELF-HOSTED ============ -->
+  <section class="card">
+    <h2>2. Self-hosted runner</h2>
+    <p class="sub">Same workflow syntax, your machine. GitHub still schedules the job.</p>
+    <div class="scroll">
+      <svg viewBox="0 0 1100 540" role="img" aria-label="A push queues a job in GitHub Actions; a runner on your machine long-polls for it, runs the steps and can reach your internal network">
+        <defs><marker id="h2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker><marker id="h2w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-warn" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="b-ext" x="20" y="30" width="220" height="84" rx="10"/>
+        <text class="t-strong" x="130" y="62" text-anchor="middle">Developer</text>
+        <text class="t-body" x="130" y="82" text-anchor="middle">git push to main</text>
+        <text class="t-body" x="130" y="99" text-anchor="middle">or opens a PR</text>
+        <path class="edge" d="M130,114 L130,166" marker-end="url(#h2)"/>
+        <text class="t-edge" x="140" y="146">triggers</text>
+        <rect class="b-app" x="20" y="168" width="220" height="176" rx="10"/>
+        <text class="t-strong" x="36" y="194">Workflow file (repo)</text>
+        <text class="t-mono" x="36" y="218">runs-on:</text>
+        <text class="t-mono" x="36" y="235">  [self-hosted, linux]</text>
+        <text class="t-body" x="36" y="259">steps: build, test,</text>
+        <text class="t-body" x="36" y="276">deploy to staging</text>
+        <text class="t-body" x="36" y="300">secrets: repo settings</text>
+        <text class="t-body" x="36" y="317">(set by an admin)</text>
+        <path class="edge" d="M240,236 L338,236" marker-end="url(#h2)"/>
+        <text class="t-mono" x="289" y="224" text-anchor="middle">queue job</text>
+        <text class="t-edge" x="289" y="254" text-anchor="middle">labels +</text>
+        <text class="t-edge" x="289" y="270" text-anchor="middle">commit SHA</text>
+        <path class="edge dash" d="M340,310 L242,310" marker-end="url(#h2)"/>
+        <text class="t-edge" x="291" y="330" text-anchor="middle">status</text>
+        <rect class="b-aws" x="340" y="20" width="420" height="264" rx="14"/>
+        <text class="t-title" x="360" y="50">GitHub Actions</text>
+        <text class="t-body" x="360" y="70">the control plane: GitHub still runs this part</text>
+        <rect class="b-chip-aws" x="360" y="86" width="380" height="40" rx="8"/>
+        <text class="num" x="376" y="111">1</text>
+        <text class="t-strong" x="396" y="111">Match runs-on labels to an idle runner</text>
+        <rect class="b-chip-aws" x="360" y="134" width="380" height="54" rx="8"/>
+        <text class="num" x="376" y="157">2</text>
+        <text class="t-strong" x="396" y="157">Hand the job to that runner</text>
+        <text class="t-mono" x="396" y="177">job token, expires when the job ends</text>
+        <rect class="b-chip-aws" x="360" y="196" width="380" height="40" rx="8"/>
+        <text class="num" x="376" y="221">3</text>
+        <text class="t-strong" x="396" y="221">Stream logs, set the check status</text>
+        <text class="t-body" x="360" y="266">It never opens a connection to your machine.</text>
+        <path class="edge" d="M760,170 L858,170" marker-end="url(#h2)"/>
+        <text class="t-edge" x="809" y="158" text-anchor="middle">upload</text>
+        <rect class="b-ext" x="860" y="110" width="220" height="120" rx="10"/>
+        <text class="t-strong" x="876" y="140">Logs and artifacts</text>
+        <text class="t-body" x="876" y="162">shown on the PR check,</text>
+        <text class="t-body" x="876" y="180">stored by GitHub</text>
+        <path class="edge dash" d="M550,286 L550,344" marker-start="url(#h2)" marker-end="url(#h2)"/>
+        <text class="t-edge" x="562" y="320">long poll (HTTPS out)</text>
+        <rect class="b-out" x="392" y="346" width="316" height="186" rx="16"/>
+        <rect class="b-app" x="400" y="354" width="300" height="170" rx="10"/>
+        <text class="t-strong" x="416" y="380">Your runner machine</text>
+        <text class="t-body" x="416" y="402">actions/runner agent, outbound only</text>
+        <text class="t-body" x="416" y="422">_work/ is reused between jobs</text>
+        <text class="t-body" x="416" y="442">your toolchain, caches, VPN</text>
+        <text class="t-mono" x="416" y="466">./config.sh --labels linux</text>
+        <text class="t-body" x="416" y="490">registered by hand, outside the repo</text>
+        <path class="edge" d="M708,438 L858,438" marker-end="url(#h2)"/>
+        <text class="t-edge" x="783" y="426" text-anchor="middle">LAN / VPN</text>
+        <rect class="b-ext" x="860" y="354" width="220" height="170" rx="10"/>
+        <text class="t-strong" x="876" y="384">Internal network</text>
+        <text class="t-body" x="876" y="406">private DB, package mirror,</text>
+        <text class="t-body" x="876" y="424">staging servers</text>
+        <text class="t-body" x="876" y="456">reachable only from inside,</text>
+        <text class="t-body" x="876" y="474">never from GitHub&#x27;s VMs</text>
+        <rect class="b-warn" x="20" y="382" width="290" height="146" rx="10"/>
+        <text class="t-strong t-warn" x="36" y="408">Gap: not ephemeral by default</text>
+        <text class="t-body" x="36" y="432">_work/ and installed tools survive</text>
+        <text class="t-body" x="36" y="449">between jobs, so one job can read</text>
+        <text class="t-body" x="36" y="468">the files the last job left behind.</text>
+        <text class="t-body" x="36" y="487">Register with --ephemeral, or</text>
+        <text class="t-body" x="36" y="504">wipe the workspace in every job.</text>
+        <path class="edge dash warn" d="M312,455 L390,455" marker-end="url(#h2w)"/>
+      </svg>
+    </div>
+    <p class="caption">GitHub still decides when a job runs, but the steps execute on a box you own. The runner dials out, so no inbound port opens, and the job can reach the private network the hosted VM never sees.</p>
+    <p class="st"><strong>S-T:</strong> a hosted runner is a rental car, cleaned between drivers. A self-hosted runner is your own car: it gets into the private garage, but whatever the last driver left on the seat is still there.</p>
+  </section>
+
+  <!-- ============ SIDE BY SIDE ============ -->
+  <section class="card">
+    <h2>Side by side</h2>
+    <p class="sub">Same job (run the workflow), different machine.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>GitHub-hosted</th><th>Self-hosted</th></tr></thead>
+        <tbody>
+          <tr><td>Machine</td><td>A VM GitHub provisions per job</td><td>Your VM, server or container</td></tr>
+          <tr><td>Starts from</td><td>A clean image every time</td><td>Whatever the last job left, unless <code>--ephemeral</code></td></tr>
+          <tr><td>Network reach</td><td>Public internet only</td><td>Anything your box can reach (LAN, VPN)</td></tr>
+          <tr><td>Selected by</td><td><code>runs-on: ubuntu-latest</code></td><td><code>runs-on: [self-hosted, linux]</code> labels</td></tr>
+          <tr><td>Connection</td><td>Internal to GitHub</td><td>Runner long-polls GitHub over outbound HTTPS</td></tr>
+          <tr><td>Setup</td><td>None</td><td><code>./config.sh</code> registration, OS, toolchain, updates</td></tr>
+          <tr><td>Main risk</td><td>Can't reach private systems</td><td>Jobs from untrusted forks run on your network</td></tr>
+          <tr><td>Who runs it</td><td>GitHub <span class="tag aws">GitHub</span></td><td>GitHub schedules <span class="tag aws">GitHub</span>, steps in your repo <span class="tag app">repo</span>, the box set up by ops <span class="tag ext">outside</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ ONE JOB ============ -->
+  <section class="card">
+    <h2>One job, both worlds</h2>
+    <p class="sub">"Run the tests on every push to main"</p>
+    <div class="grid2">
+      <div>
+        <h3 style="margin:0 0 8px;font-size:16px">GitHub-hosted</h3>
+        <ol class="steps">
+          <li>A push fires the <code>on: push</code> trigger.</li>
+          <li>GitHub boots a clean <code>ubuntu-latest</code> VM.</li>
+          <li>The steps check out the code and run <code>npm test</code>.</li>
+          <li>Logs upload, the check goes green or red, the VM is destroyed.</li>
+        </ol>
+      </div>
+      <div>
+        <h3 style="margin:0 0 8px;font-size:16px">Self-hosted</h3>
+        <ol class="steps">
+          <li>A push fires the trigger in the workflow file. <span class="tag app">repo</span></li>
+          <li>GitHub queues the job and matches <code>[self-hosted, linux]</code> to an idle runner. <span class="tag aws">GitHub</span></li>
+          <li>The runner's long poll picks the job up with a short-lived token. <span class="tag aws">GitHub</span></li>
+          <li>The steps run in <code>_work/</code> on your box and can hit the staging DB. <span class="tag app">your box</span></li>
+          <li>Logs stream back and GitHub sets the check status. <span class="tag aws">GitHub</span></li>
+          <li>The workspace stays on disk for the next job. <span class="tag app">gap</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <p class="sub">Unverified: this page is a layout example for the sketch skill. Runner flags and defaults are summarized from memory of the public docs and can change between releases; check the current runner docs before relying on them.</p>
+</div>
+</body>
+</html>

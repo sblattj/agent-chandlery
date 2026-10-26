@@ -1,0 +1,5 @@
+# Shareable blocked-authors list (safe to commit). Usually empty.
+# The real list (e.g. your employer GitHub account) lives in the local-only file
+# ~/.config/scrub/blocked-authors.txt (override: $SCRUB_BLOCKED_AUTHORS), which the
+# scripts read in addition to this one. Never commit that file.
+# One login per line. Case-insensitive. '#' comments allowed.

@@ -1,0 +1,4 @@
+$roots = "$env:TEMP","$env:LOCALAPPDATA\Kiro-Cli","$env:APPDATA","$env:USERPROFILE\.kiro","$env:LOCALAPPDATA\kiro-cli"
+Get-ChildItem $roots -Recurse -File -Include *.log,*.jsonl -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-30) } | Sort-Object LastWriteTime -Descending | Select-Object -First 12 FullName,Length,LastWriteTime | Format-Table -Auto | Out-String -Width 220 | Write-Host
+$f = Get-ChildItem $roots -Recurse -File -Include *.log -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-30) } | Select-String -Pattern 'hook' -SimpleMatch | Select-Object -Last 25
+$f | ForEach-Object { Write-Host ("{0}:{1}: {2}" -f (Split-Path $_.Path -Leaf), $_.LineNumber, $_.Line.Substring(0, [Math]::Min(260, $_.Line.Length))) }

@@ -1,0 +1,10 @@
+{
+  "out": "demo.mp4",
+  "work": "work",
+  "segments": [
+    {"card": "cards/title.png", "say": "Feature X, A B proof. A is main. B is main plus the pull request."},
+    {"clip": "raw/a-run", "banner": "cards/banner-A.png", "say": "On A, the same message falls back.", "speed": 10},
+    {"clip": "raw/b-run", "banner": "cards/banner-B.png", "say": "On B, the reply uses the customer's name.", "speed": 10},
+    {"card": "cards/verdict.png", "say": "Verdict: proven.", "pad": 1.2}
+  ]
+}

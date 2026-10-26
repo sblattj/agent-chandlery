@@ -1,0 +1,1055 @@
+#!/usr/bin/env python3
+"""Cross-client skill-recall A/B: does a one-line "name index" in the instructions
+file replace a native skills catalog? Clients: codex, agy, omp (others plug in as adapters).
+
+Three arms per client (built from Claude's skillOverrides):
+  listed  every skill in the client's native catalog (today's state)
+  index   skills that are `name-only` in skillOverrides are removed from the native
+          catalog; the instructions file gets ONE appended paragraph naming them and
+          pointing at <store>/<name>/SKILL.md
+  hidden  same removal, no paragraph (control: index must beat hidden)
+
+"Fired" for a run = the agent read some path ending /<name>/SKILL.md (or invoked the
+skill natively, where the client has that). Start tokens = input tokens of the first
+model request.
+
+  run_client.py build --client codex --arms-root DIR      # build + free check (no model call)
+  run_client.py check --client codex --arms-root DIR      # re-check only
+  run_client.py probe --client codex --arms-root DIR --arm listed --prompt "..."
+  run_client.py run   --client codex --arms-root DIR --cases cases.jsonl --out results.jsonl
+
+Records match run.py's (arm, case, rep, label, expected, skills, start_tokens, excluded,
+error, ...), so report.py reads them unchanged. A positive is excluded (no call) when
+none of its expected skills has a SKILL.md in the store (e.g. a dangling link).
+
+Adapter contract (add ... to ADAPTERS; codex, agy and omp exist):
+  adapter.discover()                      -> {name: skill dir} of the live native catalog
+  adapter.build_arm(arm, root, plan)      -> writes one arm's isolated config root
+  adapter.check_arm(root, cwd)            -> {"catalog": [names], "index_present": bool, "chars": int}
+  adapter.run(prompt, root, cwd, opts)    -> {"read_skills", "native_skills", "start_tokens",
+                                              "error", "session_id", "read_paths"}
+"""
+import argparse
+import concurrent.futures as cf
+import inspect
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+
+import _claude
+
+ARMS = ("listed", "index", "hidden")
+INDEX_HEAD = "Other skills (not listed above)."
+
+# Any path token ending /<name>/SKILL.md. <name> is the parent dir of SKILL.md.
+SKILL_PATH_RE = re.compile(r"""([^\s'"`;|&<>()]*/([A-Za-z0-9][A-Za-z0-9._:-]*)/SKILL\.md)\b""")
+
+
+# ---------------------------------------------------------------------------
+# client-agnostic pieces
+
+def index_paragraph(store, names):
+    return ("%s When one matches the task, read %s/<name>/SKILL.md first: %s."
+            % (INDEX_HEAD, store.rstrip("/"), ", ".join(sorted(names))))
+
+
+def name_only_skills(overrides_path):
+    """Base names that are `name-only` in a Claude settings file's skillOverrides."""
+    with open(os.path.expanduser(overrides_path), encoding="utf-8") as fh:
+        ov = json.load(fh).get("skillOverrides", {})
+    return {k.split(":")[-1] for k, v in ov.items() if v == "name-only"}
+
+
+def plan_arms(catalog, name_only, store):
+    """catalog: {name: dir}. Returns {arm: {"visible": [...], "hidden": [...], "index": str|None}}."""
+    names = sorted(catalog)
+    removed = [n for n in names if n in name_only]
+    kept = [n for n in names if n not in name_only]
+    para = index_paragraph(store, removed)
+    return {
+        "listed": {"visible": names, "hidden": [], "index": None},
+        "index": {"visible": kept, "hidden": removed, "index": para},
+        "hidden": {"visible": kept, "hidden": removed, "index": None},
+    }
+
+
+def build_store(store, catalog):
+    """store/<name> -> real skill dir, for every skill whose SKILL.md exists. Returns names."""
+    os.makedirs(store, exist_ok=True)
+    for n in os.listdir(store):
+        p = os.path.join(store, n)
+        if os.path.islink(p):
+            os.unlink(p)
+    ok = []
+    for n, d in sorted(catalog.items()):
+        real = os.path.realpath(d)
+        if os.path.isfile(os.path.join(real, "SKILL.md")):
+            os.symlink(real, os.path.join(store, n))
+            ok.append(n)
+    return ok
+
+
+def detect_reads(texts):
+    """Skill names whose SKILL.md path appears in any of `texts` (commands). Ordered, unique."""
+    names, paths = [], []
+    for t in texts:
+        for m in SKILL_PATH_RE.finditer(t or ""):
+            p, n = m.group(1), m.group(2)
+            if "*" in p or n in ("<name>",):
+                continue
+            if n not in names:
+                names.append(n)
+            if p not in paths:
+                paths.append(p)
+    return names, paths
+
+
+def model_invocable(skill_dir):
+    """codex's rule: hidden from the catalog when agents/openai.yaml sets
+    policy.allow_implicit_invocation: false (front-matter disable-model-invocation is ignored)."""
+    if not os.path.isfile(os.path.join(skill_dir, "SKILL.md")):
+        return False
+    try:
+        with open(os.path.join(skill_dir, "agents", "openai.yaml"), encoding="utf-8") as fh:
+            y = fh.read()
+    except OSError:
+        return True
+    return not re.search(r"(?m)^\s+allow_implicit_invocation:\s*false\s*$", y)
+
+
+def store_has(store, name):
+    return os.path.isfile(os.path.join(store, name, "SKILL.md"))
+
+
+def is_excluded(case, store):
+    exp = case.get("skills") or []
+    return case.get("label") == "positive" and bool(exp) and not any(store_has(store, s) for s in exp)
+
+
+def strip_toml_tables(text, prefix):
+    """Drop every [prefix...] / [[prefix...]] table (and its nested tables) from TOML text,
+    plus root-level dotted keys `prefix.x = ...`. Line-based (Python 3.9 has no tomllib)."""
+    out, dropping, at_root = [], False, True
+    hdr = re.compile(r"^\s*\[\[?\s*([^\]]+?)\s*\]\]?\s*(#.*)?$")
+    for line in text.splitlines(keepends=True):
+        m = hdr.match(line)
+        if m:
+            at_root = False
+            key = m.group(1).strip().strip('"')
+            dropping = key == prefix or key.startswith(prefix + ".")
+            if dropping:
+                continue
+        elif dropping:
+            continue
+        elif at_root and re.match(r"^\s*%s\s*\." % re.escape(prefix), line):
+            continue
+        out.append(line)
+    return "".join(out)
+
+
+# ---------------------------------------------------------------------------
+# codex adapter
+
+class CodexAdapter:
+    """codex-cli via CODEX_HOME=<arm root>. Runs go through ach (`ach run --agent codex`)."""
+    name = "codex"
+
+    def __init__(self, live_home="~/.codex", codex_bin=None, bun_bin=None, ach_ts=None,
+                 user_skill_roots=("~/.codex/skills", "~/.agents/skills")):
+        self.live_home = os.path.expanduser(live_home)
+        self.codex_bin = codex_bin or shutil.which("codex") or "codex"
+        self.bun_bin = bun_bin or shutil.which("bun") or os.path.expanduser("~/.bun/bin/bun")
+        # ach.ts: --ach-ts, else $ACH_TS, else a clone of agentic-coding-harness in ~.
+        self.ach_ts = os.path.expanduser(ach_ts or os.environ.get("ACH_TS") or
+                                         "~/agentic-coding-harness/src/cli/ach.ts")
+        self.user_skill_roots = [os.path.expanduser(r) for r in user_skill_roots]
+
+    def discover(self):
+        """The live native catalog: every skill dir in the user skill roots (not .system)."""
+        cat = {}
+        for root in self.user_skill_roots:
+            if not os.path.isdir(root):
+                continue
+            for n in sorted(os.listdir(root)):
+                if n.startswith("."):
+                    continue
+                cat.setdefault(n, os.path.join(root, n))
+        return cat
+
+    def instructions_text(self):
+        for fn in ("AGENTS.override.md", "AGENTS.md"):
+            p = os.path.join(self.live_home, fn)
+            if os.path.isfile(p):
+                with open(p, encoding="utf-8") as fh:
+                    return fh.read()
+        return ""
+
+    def build_arm(self, arm, root, plan, catalog):
+        """Isolated CODEX_HOME: auth symlink, config without MCP, AGENTS.md, skills/ symlinks.
+        codex also reads ~/.agents/skills (outside CODEX_HOME); hidden skills are therefore
+        also disabled with [[skills.config]] name=... enabled=false."""
+        os.makedirs(root, exist_ok=True)
+        auth = os.path.join(root, "auth.json")
+        if os.path.lexists(auth):
+            os.unlink(auth)
+        os.symlink(os.path.join(self.live_home, "auth.json"), auth)
+        skills = os.path.join(root, "skills")
+        if os.path.isdir(skills):
+            for n in os.listdir(skills):  # keep .system (codex installs it itself)
+                p = os.path.join(skills, n)
+                if os.path.islink(p):
+                    os.unlink(p)
+        os.makedirs(skills, exist_ok=True)
+        for n in plan["visible"]:
+            os.symlink(os.path.realpath(catalog[n]), os.path.join(skills, n))
+        with open(os.path.join(self.live_home, "config.toml"), encoding="utf-8") as fh:
+            cfg = strip_toml_tables(fh.read(), "mcp_servers")
+        cfg = strip_toml_tables(cfg, "skills")
+        cfg = cfg.rstrip("\n") + "\n"
+        for n in plan["hidden"]:
+            cfg += '\n[[skills.config]]\nname = "%s"\nenabled = false\n' % n
+        with open(os.path.join(root, "config.toml"), "w", encoding="utf-8") as fh:
+            fh.write(cfg)
+        text = self.instructions_text()
+        if plan["index"]:
+            text = text.rstrip("\n") + "\n\n" + plan["index"] + "\n"
+        for fn in ("AGENTS.override.md",):
+            if os.path.lexists(os.path.join(root, fn)):
+                os.unlink(os.path.join(root, fn))
+        with open(os.path.join(root, "AGENTS.md"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    @staticmethod
+    def parse_prompt_input(items):
+        """`codex debug prompt-input` JSON -> {"catalog": user skill names, "system": [...],
+        "index_present", "agents_present", "chars"}."""
+        texts = [c.get("text", "") for m in items for c in (m.get("content") or []) if isinstance(c, dict)]
+        sk = next((t for t in texts if t.startswith("<skills_instructions>")), "")
+        roots = dict(re.findall(r"- `(r\d+)` = `([^`]*)`", sk))
+        user, system = [], []
+        for r, rel in re.findall(r"\(file: (r\d+)/([^)]*?)/SKILL\.md\)", sk):
+            name = rel.split("/")[-1]
+            (system if roots.get(r, "").rstrip("/").endswith("/.system") else user).append(name)
+        agents = next((t for t in texts if t.startswith("# AGENTS.md instructions")), "")
+        return {"catalog": sorted(user), "system": sorted(system),
+                "index_present": agents.count(INDEX_HEAD) == 1, "agents_present": bool(agents),
+                "chars": sum(len(t) for t in texts)}
+
+    def check_arm(self, root, cwd):
+        p = subprocess.run([self.codex_bin, "debug", "prompt-input", "x"], cwd=cwd,
+                           env=dict(os.environ, CODEX_HOME=root), stdin=subprocess.DEVNULL,
+                           capture_output=True, timeout=120)
+        if p.returncode != 0:
+            raise RuntimeError("prompt-input exited %d: %s" % (p.returncode, p.stderr[-300:].decode("utf-8", "replace")))
+        return self.parse_prompt_input(json.loads(p.stdout.decode("utf-8")))
+
+    def ach_args(self, prompt, opts):
+        extra = "--skip-git-repo-check --sandbox read-only"
+        args = [self.ach_ts, "run", "--agent", "codex", "--wall-ms", str(int(opts.deadline * 1000)),
+                "--extra-args=" + extra, "--json"]
+        if getattr(opts, "model", None):
+            args += ["--model", opts.model]
+        return args + [prompt]
+
+    @staticmethod
+    def parse_ach(stdout):
+        """ach --json stdout -> RunResult dict (last parseable JSON object)."""
+        s = stdout.strip()
+        try:
+            return json.loads(s)
+        except ValueError:
+            pass
+        start = s.find("{")
+        while start != -1:
+            try:
+                return json.loads(s[start:])
+            except ValueError:
+                start = s.find("{", start + 1)
+        raise ValueError("no JSON RunResult in ach output: %r" % s[:200])
+
+    @staticmethod
+    def tool_texts(result):
+        """Command strings of tool calls in an ach RunResult: events of type tool_call carry
+        `arguments` (e.g. "/bin/zsh -lc 'cat .../SKILL.md'"); older ach builds emitted
+        type tool / phase start with `input`."""
+        out = []
+        for ev in result.get("events") or []:
+            if ev.get("type") == "tool_call":
+                v = ev.get("arguments")
+            elif ev.get("type") == "tool" and ev.get("phase") == "start":
+                v = ev.get("input")
+            else:
+                continue
+            if v is not None:
+                out.append(v if isinstance(v, str) else json.dumps(v))
+        return out
+
+    @staticmethod
+    def session_id(result):
+        for k in ("sessionId", "session_id", "threadId"):
+            if result.get(k):
+                return result[k]
+        for ev in result.get("events") or []:
+            for k in ("sessionId", "session_id", "thread_id"):
+                if ev.get(k):
+                    return ev[k]
+        return None
+
+    @staticmethod
+    def find_rollout(root, session_id):
+        if not session_id:
+            return None
+        for dp, _dn, fns in os.walk(os.path.join(root, "sessions")):
+            for fn in fns:
+                if fn.startswith("rollout-") and session_id in fn:
+                    return os.path.join(dp, fn)
+        return None
+
+    @staticmethod
+    def read_rollout(path):
+        """Rollout JSONL -> (first request input tokens, [tool call texts]).
+        token_count events carry per-request last_token_usage; tool calls are response_items
+        (function_call arguments, custom_tool_call input such as code-mode `exec` JS,
+        local_shell_call action). Tool OUTPUTS are not scanned (an `ls` listing is not a read)."""
+        first, texts = None, []
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    ev = json.loads(line)
+                except ValueError:
+                    continue
+                pl = ev.get("payload") or {}
+                t = pl.get("type")
+                if t == "token_count" and first is None and pl.get("info"):
+                    u = pl["info"].get("last_token_usage") or {}
+                    first = u.get("input_tokens")
+                elif ev.get("type") == "response_item" and t in ("function_call", "custom_tool_call", "local_shell_call"):
+                    v = pl.get("arguments") or pl.get("input") or pl.get("action")
+                    texts.append(v if isinstance(v, str) else json.dumps(v))
+        return first, texts
+
+    def run(self, prompt, root, cwd, opts):
+        res = {"read_skills": [], "native_skills": [], "start_tokens": None, "error": None,
+               "session_id": None, "read_paths": []}
+        try:
+            env = {"CODEX_HOME": root,
+                   "PATH": os.path.dirname(self.codex_bin) + os.pathsep + os.environ.get("PATH", "")}
+            out, rc = _claude.run_claude(self.ach_args(prompt, opts), deadline=opts.deadline + 30,
+                                         cwd=cwd, strip_api_key=False, extra_env=env,
+                                         claude_bin=self.bun_bin)
+            with open(os.path.join(cwd, ".ach-result.json"), "w", encoding="utf-8") as fh:
+                fh.write(out)  # raw evidence; the run is over, the agent never sees it
+            r = self.parse_ach(out)
+            res["session_id"] = self.session_id(r)
+            st, texts = None, self.tool_texts(r)
+            rp = self.find_rollout(root, res["session_id"])
+            if rp:
+                st, rtexts = self.read_rollout(rp)
+                texts += rtexts
+            res["read_skills"], res["read_paths"] = detect_reads(texts)
+            # ach's tokens[0].inputTokens is the whole codex turn (all requests, minus cache
+            # reads), not the first request, so it is never used as start tokens.
+            res["start_tokens"] = st
+            res["start_tokens_source"] = "rollout" if st is not None else None
+            res["exit_status"] = r.get("exitStatus")
+            if r.get("exitStatus") != "success" and not res["read_skills"]:
+                res["error"] = "ach exitStatus=%s rc=%s" % (r.get("exitStatus"), rc)
+            elif st is None:
+                res["error"] = "no rollout token_count for session %s" % res["session_id"]
+        except Exception as e:  # noqa: BLE001 - recorded
+            res["error"] = str(e)[:300]
+        return res
+
+
+# ---------------------------------------------------------------------------
+# agy (Google Antigravity CLI) adapter
+
+def frontmatter_disabled(skill_md):
+    """True when SKILL.md front matter sets disable-model-invocation: true."""
+    try:
+        with open(skill_md, encoding="utf-8") as fh:
+            text = fh.read(8192)
+    except OSError:
+        return False
+    m = re.match(r"---\s*\n(.*?)\n---", text, re.S)
+    return bool(m and re.search(r"(?m)^disable-model-invocation:\s*true\s*$", m.group(1)))
+
+
+class AgyAdapter:
+    """Google Antigravity CLI (`agy`) via HOME=<arm root>. Every config and skill root agy
+    reads is HOME-relative (~/.gemini/config/{GEMINI.md,skills}, ~/.agents/skills,
+    ~/.gemini/antigravity-cli app data), so a swapped HOME isolates the whole catalog.
+    Auth lives in the macOS login keychain; `security` resolves it through
+    $HOME/Library/Keychains, which the arm symlinks (no credential is copied).
+    Runs call agy directly (`agy -p ... --output-format json`) with a wall-clock deadline."""
+    name = "agy"
+    INSTR = "GEMINI.md"
+
+    def __init__(self, live_home="~/.gemini", agy_bin=None,
+                 user_skill_roots=("~/.gemini/config/skills", "~/.agents/skills"),
+                 keychains="~/Library/Keychains"):
+        self.live_home = os.path.expanduser(live_home)
+        self.agy_bin = agy_bin or shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
+        self.user_skill_roots = [os.path.expanduser(r) for r in user_skill_roots]
+        self.keychains = os.path.expanduser(keychains)
+
+    @staticmethod
+    def model_invocable(skill_dir):
+        """agy's rule: listed unless front matter sets disable-model-invocation: true."""
+        md = os.path.join(skill_dir, "SKILL.md")
+        return os.path.isfile(md) and not frontmatter_disabled(md)
+
+    def discover(self):
+        cat = {}
+        for root in self.user_skill_roots:
+            if not os.path.isdir(root):
+                continue
+            for n in sorted(os.listdir(root)):
+                if not n.startswith("."):
+                    cat.setdefault(n, os.path.join(root, n))
+        return cat
+
+    def instructions_text(self):
+        p = os.path.join(self.live_home, "config", self.INSTR)
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as fh:
+                return fh.read()
+        return ""
+
+    def live_model(self):
+        try:
+            with open(os.path.join(self.live_home, "antigravity-cli", "settings.json"), encoding="utf-8") as fh:
+                return json.load(fh).get("model")
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def _relink(path, target):
+        if os.path.lexists(path):
+            os.unlink(path)
+        os.symlink(target, path)
+
+    def build_arm(self, arm, root, plan, catalog):
+        """Arm HOME: Library/Keychains symlink, .gemini/antigravity-cli/settings.json with only
+        the live model, .gemini/config/GEMINI.md (+ AGENTS.md -> GEMINI.md, as live), and
+        .gemini/config/skills/<name> symlinks. No MCP config, no hooks, no ~/.agents.
+        agy installs its own builtin skills under antigravity-cli/builtin (like codex .system)."""
+        root = os.path.abspath(root)
+        os.makedirs(os.path.join(root, "Library"), exist_ok=True)
+        self._relink(os.path.join(root, "Library", "Keychains"), self.keychains)
+        app = os.path.join(root, ".gemini", "antigravity-cli")
+        cfg = os.path.join(root, ".gemini", "config")
+        skills = os.path.join(cfg, "skills")
+        os.makedirs(app, exist_ok=True)
+        if os.path.islink(skills):
+            os.unlink(skills)
+        os.makedirs(skills, exist_ok=True)
+        for n in os.listdir(skills):
+            p = os.path.join(skills, n)
+            if os.path.islink(p):
+                os.unlink(p)
+        for n in plan["visible"]:
+            os.symlink(os.path.realpath(catalog[n]), os.path.join(skills, n))
+        stray = os.path.join(root, ".agents")
+        if os.path.lexists(stray):  # agy also scans ~/.agents/skills; the arm keeps one root
+            shutil.rmtree(stray) if os.path.isdir(stray) and not os.path.islink(stray) else os.unlink(stray)
+        for fn in ("mcp_config.json", "hooks.json"):
+            if os.path.lexists(os.path.join(cfg, fn)):
+                os.unlink(os.path.join(cfg, fn))
+        # Reads anywhere are allowed (like codex's read-only sandbox); every other tool keeps
+        # agy's default request-review, which headless print mode auto-denies.
+        settings = {"permissions": {"allow": ["read_file(*)"]}}
+        if self.live_model():
+            settings["model"] = self.live_model()
+        with open(os.path.join(app, "settings.json"), "w", encoding="utf-8") as fh:
+            json.dump(settings, fh)
+        text = self.instructions_text()
+        if plan["index"]:
+            text = text.rstrip("\n") + "\n\n" + plan["index"] + "\n"
+        gm = os.path.join(cfg, self.INSTR)
+        if os.path.lexists(gm):
+            os.unlink(gm)
+        with open(gm, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        self._relink(os.path.join(cfg, "AGENTS.md"), self.INSTR)
+
+    def skill_roots_in(self, root):
+        return [os.path.join(root, ".gemini", "config", "skills"), os.path.join(root, ".agents", "skills")]
+
+    def check_arm(self, root, cwd):
+        """Free (no model call) check of what agy will scan under HOME=root: user skill roots
+        filtered by the front-matter rule, builtin skills, and the instruction files (by
+        realpath, as agy dedupes symlinks). The model-side proof is `prompt_catalog` on a
+        real run's conversation db (see run())."""
+        user, chars = [], 0
+        for r in self.skill_roots_in(root):
+            if not os.path.isdir(r):
+                continue
+            for n in sorted(os.listdir(r)):
+                d = os.path.join(r, n)
+                if not n.startswith(".") and n not in user and self.model_invocable(d):
+                    user.append(n)
+        bi = os.path.join(root, ".gemini", "antigravity-cli", "builtin", "skills")
+        system = sorted(n for n in os.listdir(bi) if not n.startswith(".")) if os.path.isdir(bi) else []
+        seen, idx, present = set(), 0, False
+        cfg = os.path.join(root, ".gemini", "config")
+        for fn in (self.INSTR, "AGENTS.md"):
+            p = os.path.join(cfg, fn)
+            if not os.path.isfile(p) or os.path.realpath(p) in seen:
+                continue
+            seen.add(os.path.realpath(p))
+            with open(p, encoding="utf-8") as fh:
+                t = fh.read()
+            present = present or bool(t.strip())
+            idx += t.count(INDEX_HEAD)
+            chars += len(t)
+        return {"catalog": sorted(user), "system": system, "index_present": idx == 1,
+                "agents_present": present, "chars": chars}
+
+    # -- runs ---------------------------------------------------------------
+
+    def args(self, prompt, opts):
+        a = [self.agy_bin, "-p", prompt, "--output-format", "stream-json",
+             "--print-timeout", "%ds" % int(opts.deadline)]
+        if getattr(opts, "model", None):
+            a += ["--model", opts.model]
+        return a
+
+    @staticmethod
+    def parse_stream(stdout):
+        """`--output-format stream-json` stdout -> (conversation_id, first-request input tokens,
+        [tool call inputs], result dict). Each model request is a step_update with
+        step_type agent_response and its own `usage`; the final result's usage is the whole-turn
+        SUM (verified: 28287 + 2056 = 30343 on a two-request run), so it is never start tokens.
+        Tool calls are step_update step_type tool with tool_info.parameters (e.g. view_file
+        {"AbsolutePath": ".../<name>/SKILL.md"}); tool OUTPUTS are not scanned."""
+        conv, first, texts, result, seen = None, None, [], {}, set()
+        for line in stdout.splitlines():
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(ev, dict):
+                continue
+            if ev.get("event") == "init":
+                conv = conv or ev.get("conversation_id")
+            elif ev.get("event") == "result":
+                result = ev.get("result") or {}
+                conv = conv or result.get("conversation_id")
+            elif ev.get("event") == "step_update":
+                su = ev.get("step_update") or {}
+                conv = conv or su.get("conversation_id")
+                if su.get("step_type") == "agent_response" and su.get("usage") and first is None:
+                    u = su["usage"]
+                    first = (u.get("input_tokens") or 0) + (u.get("cache_read_tokens") or 0)
+                elif su.get("step_type") == "tool":
+                    params = (su.get("tool_info") or {}).get("parameters")
+                    key = (su.get("step_index"), json.dumps(params, sort_keys=True))
+                    if params is not None and key not in seen:
+                        seen.add(key)
+                        texts.append(params if isinstance(params, str) else json.dumps(params))
+        return conv, first, texts, result
+
+    @staticmethod
+    def find_db(root, conv_id):
+        p = os.path.join(root, ".gemini", "antigravity-cli", "conversations", "%s.db" % conv_id)
+        return p if conv_id and os.path.isfile(p) else None
+
+    @staticmethod
+    def prompt_catalog(text):
+        """Rendered request text -> {"catalog": user skill names, "system": builtin names,
+        "paths": {name: SKILL.md path}}. agy lists each skill as
+        `- <name> (<dir>/SKILL.md): <description>` inside <skills>...</skills>; builtins live
+        under antigravity-cli/builtin/skills."""
+        i = text.find("<skills>")
+        j = text.find("</skills>", i)
+        sk = text[i:j] if i != -1 else ""
+        paths = dict(re.findall(r"(?m)^- ([A-Za-z0-9][A-Za-z0-9._:-]*) \(([^()\n]*/SKILL\.md)\):", sk))
+        system = sorted(n for n, p in paths.items() if "/antigravity-cli/builtin/" in p)
+        return {"catalog": sorted(set(paths) - set(system)), "system": system, "paths": paths}
+
+    def request_catalog(self, root, conv_id):
+        """The catalog the model actually received: the first gen_metadata row of the run's
+        conversation db that holds a rendered <skills> block (rows are per generation and not
+        all carry the prompt; observed a 1.2KB row 0 before the 185KB prompt row). None when
+        the db or such a row is missing."""
+        import sqlite3
+        p = self.find_db(root, conv_id)
+        if not p:
+            return None
+        db = sqlite3.connect("file:%s?mode=ro" % p, uri=True)
+        try:
+            for (data,) in db.execute("select data from gen_metadata order by idx"):
+                text = bytes(data).decode("utf-8", "replace")
+                if "<skills>" in text:
+                    return self.prompt_catalog(text)
+        finally:
+            db.close()
+        return None
+
+    def run(self, prompt, root, cwd, opts):
+        res = {"read_skills": [], "native_skills": [], "start_tokens": None, "error": None,
+               "session_id": None, "read_paths": []}
+        root = os.path.abspath(root)
+        try:
+            env = dict(os.environ, HOME=root)
+            try:
+                p = subprocess.run(self.args(prompt, opts), cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                   capture_output=True, timeout=opts.deadline + 30)
+                out, rc = p.stdout.decode("utf-8", "replace"), p.returncode
+                err = p.stderr.decode("utf-8", "replace")
+            except subprocess.TimeoutExpired as e:
+                out = (e.stdout or b"").decode("utf-8", "replace")
+                rc, err = None, "wall-clock deadline %ss" % (opts.deadline + 30)
+            with open(os.path.join(cwd, ".agy-stream.jsonl"), "w", encoding="utf-8") as fh:
+                fh.write(out)  # raw evidence; the run is over, the agent never sees it
+            conv, st, texts, result = self.parse_stream(out)
+            res["session_id"] = conv
+            res["read_skills"], res["read_paths"] = detect_reads(texts)
+            res["start_tokens"] = st
+            res["start_tokens_source"] = "stream-first-agent_response" if st is not None else None
+            res["exit_status"] = result.get("status")
+            if result.get("denied_actions"):
+                res["denied_actions"] = [d.get("action") for d in result["denied_actions"]]
+            if getattr(opts, "verify_prompt", False):
+                res["prompt_catalog"] = self.request_catalog(root, conv)
+            if "read_file" in res.get("denied_actions", []):
+                # agy reports SUCCESS with an empty response when a read was auto-denied: a silent
+                # miss, so flag it (and redo it on resume) instead of counting it against recall.
+                res["error"] = "agy auto-denied read_file (missing permissions.allow in the arm settings?)"
+            elif result.get("status") != "SUCCESS" and not res["read_skills"]:
+                res["error"] = "agy status=%s rc=%s %s" % (result.get("status"), rc, err.strip()[-200:])
+            elif st is None:
+                res["error"] = "no agent_response usage in stream for conversation %s" % conv
+        except Exception as e:  # noqa: BLE001 - recorded
+            res["error"] = str(e)[:300]
+        return res
+
+
+# ---------------------------------------------------------------------------
+# omp (oh-my-pi) adapter
+
+OMP_SKILL_TOGGLES = ("enableClaudeUser", "enableClaudeProject", "enableCodexUser", "enablePiUser",
+                     "enablePiProject", "enableAgentsUser", "enableAgentsProject")
+SKILL_URL_RE = re.compile(r"skill://([A-Za-z0-9][A-Za-z0-9._:-]*)")
+
+
+def strip_yaml_top_key(text, key):
+    """Drop a top-level `key:` block (the key line and every indented/blank line under it)."""
+    out, dropping = [], False
+    for line in text.splitlines(keepends=True):
+        if re.match(r"^%s\s*:" % re.escape(key), line):
+            dropping = True
+            continue
+        if dropping and (not line.strip() or line[0] in " \t#"):
+            continue
+        dropping = False
+        out.append(line)
+    return "".join(out)
+
+
+def front_matter(path):
+    """{key: raw value} of a SKILL.md YAML front matter (top-level scalars only)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return {}
+    m = re.match(r"^---\s*\n(.*?)\n---\s*(\n|$)", text, re.S)
+    if not m:
+        return {}
+    return {k: v.strip().strip("'\"") for k, v in re.findall(r"(?m)^([A-Za-z0-9_-]+):[ \t]*(.*)$", m.group(1))}
+
+
+class OmpAdapter:
+    """oh-my-pi (`omp`) via PI_CODING_AGENT_DIR=<arm root>. Called directly (not through ach).
+
+    omp scans its own <agent dir>/skills plus ~/.claude, ~/.codex, ~/.agents skills and
+    third-party ones (e.g. Claude plugin caches). Every source toggle is turned off, which
+    also closes the third-party fallback (skills.ts isSourceEnabled), and the arm's skills/
+    is passed as the one skills.customDirectories entry (scanned unconditionally)."""
+    name = "omp"
+
+    def __init__(self, live_home="~/.omp/agent", omp_bin=None, tools="read,grep,glob",
+                 user_skill_roots=("~/.omp/agent/skills", "~/.claude/skills", "~/.codex/skills",
+                                   "~/.agents/skills"), **_ignored):
+        self.live_home = os.path.expanduser(live_home)
+        self.omp_bin = omp_bin or shutil.which("omp") or os.path.expanduser("~/.bun/bin/omp")
+        self.tools = tools
+        self.user_skill_roots = [os.path.expanduser(r) for r in user_skill_roots]
+
+    discover = CodexAdapter.discover
+
+    @staticmethod
+    def model_invocable(skill_dir):
+        """omp's rule: rendered unless front matter sets hide / disable-model-invocation true;
+        customDirectories scanning also requires a description."""
+        fm = front_matter(os.path.join(skill_dir, "SKILL.md"))
+        if not fm or not fm.get("description"):
+            return False
+        return not any(fm.get(k, "").lower() == "true" for k in ("hide", "disable-model-invocation",
+                                                                 "disableModelInvocation"))
+
+    def env(self, root):
+        e = dict(os.environ, PI_CODING_AGENT_DIR=root)
+        for k in ("OMP_PROFILE", "PI_PROFILE", "PI_CONFIG_DIR"):
+            e.pop(k, None)
+        return e
+
+    def build_arm(self, arm, root, plan, catalog):
+        """Isolated agent dir: config.yml (live model/provider settings, skills block replaced),
+        AGENTS.md (+ index paragraph), skills/ symlinks. Credentials are not linked: omp keeps
+        them in agent.db, which an arm must not share; provider keys come from the env."""
+        os.makedirs(root, exist_ok=True)
+        skills = os.path.join(root, "skills")
+        if os.path.isdir(skills):
+            for n in os.listdir(skills):
+                p = os.path.join(skills, n)
+                if os.path.islink(p):
+                    os.unlink(p)
+        os.makedirs(skills, exist_ok=True)
+        for n in plan["visible"]:
+            os.symlink(os.path.realpath(catalog[n]), os.path.join(skills, n))
+        try:
+            with open(os.path.join(self.live_home, "config.yml"), encoding="utf-8") as fh:
+                cfg = fh.read()
+        except OSError:
+            cfg = ""
+        cfg = strip_yaml_top_key(cfg, "skills").rstrip("\n")
+        cfg += "\nskills:\n" + "".join("  %s: false\n" % k for k in OMP_SKILL_TOGGLES)
+        cfg += "  customDirectories:\n    - %s\n" % json.dumps(skills)
+        with open(os.path.join(root, "config.yml"), "w", encoding="utf-8") as fh:
+            fh.write(cfg.lstrip("\n"))
+        text = ""
+        if os.path.isfile(os.path.join(self.live_home, "AGENTS.md")):
+            with open(os.path.join(self.live_home, "AGENTS.md"), encoding="utf-8") as fh:
+                text = fh.read()
+        if plan["index"]:
+            text = text.rstrip("\n") + "\n\n" + plan["index"] + "\n"
+        with open(os.path.join(root, "AGENTS.md"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    @staticmethod
+    def parse_system_prompt(parts, root):
+        """get_state systemPrompt (list of str) -> check dict."""
+        txt = "\n".join(p for p in parts or [] if isinstance(p, str))
+        m = re.search(r"<skills>\n(.*?)</skills>", txt, re.S)
+        cat = [ln[2:].split(":", 1)[0] for ln in (m.group(1).splitlines() if m else []) if ln.startswith("- ")]
+        files = re.findall(r'<file path="([^"]+)">', txt)
+        agents = os.path.join(root, "AGENTS.md")
+        return {"catalog": sorted(cat), "system": [], "index_present": txt.count(INDEX_HEAD) == 1,
+                "agents_present": any(os.path.realpath(f) == os.path.realpath(agents) for f in files),
+                "context_files": files, "chars": len(txt)}
+
+    def get_state(self, root, cwd, timeout=120):
+        """`omp --mode rpc` + get_state: the real system prompt, no model call."""
+        p = subprocess.Popen([self.omp_bin, "--mode", "rpc", "--no-session", "--no-title"], cwd=cwd,
+                             env=self.env(root), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True)
+        timer = threading.Timer(timeout, p.kill)
+        timer.start()
+        state = None
+        try:
+            for line in p.stdout:
+                try:
+                    ev = json.loads(line)
+                except ValueError:
+                    continue
+                if ev.get("type") == "ready":
+                    p.stdin.write(json.dumps({"id": "cd-state", "type": "get_state"}) + "\n")
+                    p.stdin.flush()
+                elif ev.get("id") == "cd-state":
+                    state = ev.get("data") or {}
+                    break
+        finally:
+            timer.cancel()
+            p.kill()
+            err = p.stderr.read()
+            p.wait()
+        if state is None:
+            raise RuntimeError("omp rpc get_state gave no answer: %s" % err[-300:])
+        return state
+
+    def check_arm(self, root, cwd):
+        st = self.get_state(root, cwd)
+        res = self.parse_system_prompt(st.get("systemPrompt"), root)
+        res["model"] = (st.get("model") or {}).get("id")
+        return res
+
+    def args(self, prompt, opts, session_dir):
+        a = [self.omp_bin, "-p", "--no-title", "--session-dir", session_dir,
+             "--max-time", str(int(opts.deadline))]
+        if self.tools:
+            a += ["--tools", self.tools]
+        if getattr(opts, "model", None):
+            a += ["--model", opts.model]
+        return a + [prompt]
+
+    @staticmethod
+    def read_session(path):
+        """omp session JSONL -> (first assistant usage dict, [tool call texts], [skill:// names]).
+        Tool calls are assistant content blocks {type: toolCall, name, arguments}; a `read` of
+        skill://<name> is omp's native skill load. Tool results are not scanned."""
+        first, texts, native = None, [], []
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    ev = json.loads(line)
+                except ValueError:
+                    continue
+                m = ev.get("message") if ev.get("type") == "message" else None
+                if not isinstance(m, dict) or m.get("role") != "assistant":
+                    continue
+                if first is None and isinstance(m.get("usage"), dict):
+                    first = m["usage"]
+                for c in m.get("content") or []:
+                    if not (isinstance(c, dict) and c.get("type") == "toolCall"):
+                        continue
+                    args = c.get("arguments") or {}
+                    v = args if isinstance(args, str) else (args.get("path") or args.get("command") or json.dumps(args))
+                    texts.append(v if isinstance(v, str) else json.dumps(v))
+                    for n in SKILL_URL_RE.findall(texts[-1]):
+                        n = n.split("/")[0]
+                        if n not in native:
+                            native.append(n)
+        return first, texts, native
+
+    @staticmethod
+    def start_tokens(usage):
+        if not usage:
+            return None
+        return sum(int(usage.get(k) or 0) for k in ("input", "cacheRead", "cacheWrite"))
+
+    def run(self, prompt, root, cwd, opts):
+        res = {"read_skills": [], "native_skills": [], "start_tokens": None, "error": None,
+               "session_id": None, "read_paths": []}
+        try:
+            sdir = os.path.join(cwd, ".omp-session")
+            os.makedirs(sdir, exist_ok=True)
+            try:
+                p = subprocess.run(self.args(prompt, opts, sdir), cwd=cwd, env=self.env(root),
+                                   stdin=subprocess.DEVNULL, capture_output=True, timeout=opts.deadline + 30)
+                out, rc = p.stdout.decode("utf-8", "replace"), p.returncode
+            except subprocess.TimeoutExpired as e:
+                out, rc = (e.stdout or b"").decode("utf-8", "replace"), "timeout"
+            with open(os.path.join(cwd, ".omp-stdout.txt"), "w", encoding="utf-8") as fh:
+                fh.write(out)  # raw evidence; the run is over, the agent never sees it
+            files = sorted(os.path.join(dp, f) for dp, _d, fs in os.walk(sdir) for f in fs if f.endswith(".jsonl"))
+            usage, texts, native = (None, [], [])
+            if files:
+                res["session_id"] = os.path.basename(files[0])[:-6]
+                usage, texts, native = self.read_session(files[0])
+            res["read_skills"], res["read_paths"] = detect_reads(texts)
+            res["native_skills"] = native
+            res["start_tokens"] = self.start_tokens(usage)
+            res["start_usage"] = {k: usage.get(k) for k in ("input", "cacheRead", "cacheWrite", "output")} if usage else None
+            res["start_tokens_source"] = "session" if usage else None
+            res["exit_status"] = "success" if rc == 0 else "rc=%s" % rc
+            if rc != 0 and not (res["read_skills"] or native):
+                res["error"] = "omp exited rc=%s" % rc
+            elif usage is None:
+                res["error"] = "no assistant usage in omp session (%d files)" % len(files)
+        except Exception as e:  # noqa: BLE001 - recorded
+            res["error"] = str(e)[:300]
+        return res
+
+
+ADAPTERS = {"codex": CodexAdapter, "agy": AgyAdapter, "omp": OmpAdapter}
+
+
+# ---------------------------------------------------------------------------
+# commands
+
+def arm_root(arms_root, arm):
+    return os.path.join(arms_root, arm)
+
+
+def load_manifest(arms_root):
+    with open(os.path.join(arms_root, "manifest.json"), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def cmd_build(a, ad):
+    arms_root = os.path.abspath(a.arms_root)
+    os.makedirs(arms_root, exist_ok=True)
+    catalog = ad.discover()
+    store = os.path.join(arms_root, "store")
+    in_store = build_store(store, catalog)
+    invocable = getattr(ad, "model_invocable", None) or model_invocable
+    visible = {n: d for n, d in catalog.items() if n in in_store and invocable(os.path.join(store, n))}
+    plan = plan_arms(visible, name_only_skills(a.overrides), store)
+    for arm in ARMS:
+        ad.build_arm(arm, arm_root(arms_root, arm), plan[arm], catalog)
+    man = {"client": ad.name, "store": store, "arms": list(ARMS), "plan": plan,
+           "skipped_no_skill_md": sorted(set(catalog) - set(in_store)),
+           "not_model_invocable": sorted(set(in_store) - set(visible))}
+    with open(os.path.join(arms_root, "manifest.json"), "w", encoding="utf-8") as fh:
+        json.dump(man, fh, indent=1)
+    print("built %d arms under %s (store %d skills; no SKILL.md: %s; not model-invocable: %s)" % (
+        len(ARMS), arms_root, len(in_store), man["skipped_no_skill_md"], man["not_model_invocable"]),
+        file=sys.stderr)
+    return cmd_check(a, ad)
+
+
+def cmd_check(a, ad):
+    arms_root = os.path.abspath(a.arms_root)
+    man = load_manifest(arms_root)
+    cwd = tempfile.mkdtemp(prefix="check-", dir=arms_root)
+    bad = 0
+    for arm in man["arms"]:
+        c = ad.check_arm(arm_root(arms_root, arm), cwd)
+        want = sorted(man["plan"][arm]["visible"])
+        want_index = bool(man["plan"][arm]["index"])
+        verdicts = [("catalog == plan", c["catalog"] == want),
+                    ("agents file loaded", c["agents_present"]),
+                    ("index paragraph %s" % ("once" if want_index else "absent"), c["index_present"] == want_index)]
+        print("%-7s catalog=%d (+%d system) expected=%d chars=%d index=%s" % (
+            arm, len(c["catalog"]), len(c["system"]), len(want), c["chars"], c["index_present"]))
+        for label, ok in verdicts:
+            print("  %s: %s" % ("PASS" if ok else "FAIL", label))
+            bad += 0 if ok else 1
+        if c["catalog"] != want:
+            print("  diff: missing=%s extra=%s" % (sorted(set(want) - set(c["catalog"])),
+                                                   sorted(set(c["catalog"]) - set(want))))
+    shutil.rmtree(cwd, ignore_errors=True)
+    return 1 if bad else 0
+
+
+def run_case(ad, case, arm, arm_idx, rep, a, arms_root, store):
+    rec = {"key": "%s|%s|%d" % (arm, case["id"], rep), "arm": arm, "arm_idx": arm_idx, "case": case["id"],
+           "rep": rep, "label": case["label"], "expected": case.get("skills", []),
+           "explicit": bool(case.get("explicit")), "synthetic": bool(case.get("synthetic")),
+           "prompt": case["prompt"][:200], "ts": int(time.time()), "client": ad.name}
+    if is_excluded(case, store):
+        rec.update(excluded=True, skills=[], start_tokens=None)
+        return rec
+    t0 = time.time()
+    cwd = tempfile.mkdtemp(prefix="run-", dir=os.path.join(arms_root, "cwd"))
+    r = ad.run(case["prompt"], arm_root(arms_root, arm), cwd, a)
+    skills = list(r["read_skills"]) + [s for s in r["native_skills"] if s not in r["read_skills"]]
+    rec.update(skills=skills, start_tokens=r["start_tokens"], session_id=r.get("session_id"),
+               read_paths=r.get("read_paths", []), start_tokens_source=r.get("start_tokens_source"),
+               exit_status=r.get("exit_status"))
+    for k in ("denied_actions", "prompt_catalog"):
+        if r.get(k) is not None:
+            rec[k] = r[k]
+    if r.get("start_usage"):
+        rec["start_usage"] = r["start_usage"]
+    if r["error"]:
+        rec["error"] = r["error"]
+    rec["secs"] = round(time.time() - t0, 1)
+    return rec
+
+
+def cmd_probe(a, ad):
+    arms_root = os.path.abspath(a.arms_root)
+    os.makedirs(os.path.join(arms_root, "cwd"), exist_ok=True)
+    case = {"id": "probe", "label": "positive", "skills": [], "prompt": a.prompt}
+    rec = run_case(ad, case, a.arm, 0, 0, a, arms_root, load_manifest(arms_root)["store"])
+    print(json.dumps(rec, indent=1))
+    return 1 if rec.get("error") else 0
+
+
+def cmd_run(a, ad):
+    arms_root = os.path.abspath(a.arms_root)
+    man = load_manifest(arms_root)
+    os.makedirs(os.path.join(arms_root, "cwd"), exist_ok=True)
+    arms = a.arm or man["arms"]
+    cases = _claude.read_jsonl(a.cases)
+    if a.skip_skill:
+        cases = [c for c in cases if not set(c.get("skills") or []) & set(a.skip_skill)]
+    if a.limit:
+        cases = cases[:a.limit]
+    done = set()
+    if os.path.exists(a.out):
+        with open(a.out, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                if a.keep_errors or not r.get("error"):
+                    done.add(r["key"])
+    todo = [(c, arm, man["arms"].index(arm), rep) for rep in range(a.reps) for c in cases for arm in arms
+            if "%s|%s|%d" % (arm, c["id"], rep) not in done]
+    prog = a.progress or a.out + ".progress"
+    print("%d runs to do (%d already done)" % (len(todo), len(done)), file=sys.stderr)
+    lock, n = threading.Lock(), [0, 0]
+
+    def work(item):
+        c, arm, idx, rep = item
+        rec = run_case(ad, c, arm, idx, rep, a, arms_root, man["store"])
+        with lock:
+            with open(a.out, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            n[0] += 1
+            n[1] += 1 if rec.get("error") else 0
+            line = "[%d/%d] %s %s fired=%s tok=%s%s" % (n[0], len(todo), rec["key"], rec["expected"], rec["skills"],
+                                                       rec.get("start_tokens"), " ERROR" if rec.get("error") else "")
+            with open(prog, "a", encoding="utf-8") as pf:
+                pf.write(line + "\n")
+            print(line, file=sys.stderr, flush=True)
+
+    with cf.ThreadPoolExecutor(max_workers=max(1, a.workers)) as ex:
+        list(ex.map(work, todo))
+    print("done: %d runs, %d errors -> %s" % (n[0], n[1], a.out), file=sys.stderr)
+    return 1 if n[1] else 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("cmd", choices=["build", "check", "probe", "run"])
+    ap.add_argument("--client", default="codex", choices=sorted(ADAPTERS))
+    ap.add_argument("--arms-root", required=True, help="dir holding <arm>/ config roots, store/, manifest.json")
+    ap.add_argument("--overrides", default="~/.claude/settings.json", help="Claude settings with skillOverrides")
+    ap.add_argument("--cases")
+    ap.add_argument("--out")
+    ap.add_argument("--arm", nargs="+", help="run: subset of arms; probe: the arm (one)")
+    ap.add_argument("--prompt", help="probe: the prompt")
+    ap.add_argument("--reps", type=int, default=1)
+    ap.add_argument("--workers", type=int, default=1, help="arms share sqlite state per root; keep low")
+    ap.add_argument("--deadline", type=float, default=240, help="per-run wall-clock seconds (ach --wall-ms)")
+    ap.add_argument("--model", default=None, help="override the client's configured model")
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--skip-skill", nargs="*", default=[], help="drop cases expecting any of these skills")
+    ap.add_argument("--progress")
+    ap.add_argument("--keep-errors", action="store_true")
+    ap.add_argument("--verify-prompt", action="store_true",
+                    help="agy: record the catalog the model received (decoded from the conversation db)")
+    ap.add_argument("--live-home", default=None, help="live config root (codex ~/.codex, agy ~/.gemini, omp ~/.omp/agent)")
+    ap.add_argument("--codex-bin", default=None, help="codex: binary (default: codex on PATH)")
+    ap.add_argument("--omp-bin", default=None, help="omp: binary (default: omp on PATH, else ~/.bun/bin/omp)")
+    ap.add_argument("--omp-tools", default=None, help="omp: --tools list (default read,grep,glob: no bash/write)")
+    ap.add_argument("--agy-bin", default=None, help="agy: binary (default: agy on PATH)")
+    ap.add_argument("--keychains", default=None, help="agy: keychain dir symlinked into each arm HOME (default ~/Library/Keychains)")
+    ap.add_argument("--bun-bin", default=None, help="bun binary that runs ach.ts")
+    ap.add_argument("--ach-ts", default=None, help="path to ach.ts (default $ACH_TS, else ~/agentic-coding-harness/src/cli/ach.ts)")
+    ap.add_argument("--skill-roots", nargs="+", default=None,
+                    help="user skill roots the client scans (codex: ~/.codex/skills ~/.agents/skills; "
+                         "agy: ~/.gemini/config/skills ~/.agents/skills; "
+                         "omp: ~/.omp/agent/skills ~/.claude/skills ~/.codex/skills ~/.agents/skills)")
+    a = ap.parse_args(argv)
+    kw = {k: v for k, v in (("live_home", a.live_home), ("codex_bin", a.codex_bin), ("bun_bin", a.bun_bin),
+                             ("ach_ts", a.ach_ts), ("user_skill_roots", a.skill_roots), ("agy_bin", a.agy_bin),
+                             ("keychains", a.keychains), ("omp_bin", a.omp_bin), ("tools", a.omp_tools)) if v}
+    cls = ADAPTERS[a.client]
+    accepted = inspect.signature(cls.__init__).parameters
+    ad = cls(**{k: v for k, v in kw.items() if k in accepted})
+    if a.cmd == "probe":
+        if not (a.arm and a.prompt):
+            ap.error("probe needs --arm ARM --prompt TEXT")
+        a.arm = a.arm[0]
+        return cmd_probe(a, ad)
+    if a.cmd == "run" and not (a.cases and a.out):
+        ap.error("run needs --cases and --out")
+    return {"build": cmd_build, "check": cmd_check, "run": cmd_run}[a.cmd](a, ad)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

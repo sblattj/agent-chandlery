@@ -1,0 +1,17 @@
+<link rel="stylesheet" href="narr.css"><main id="shot">
+<div class="hdr"><h1>{{ID}} &nbsp;{{CLAIM, one plain sentence}}</h1>
+<p>Where: {{UI path or API operation}}. Same call, both sides.</p></div>
+<div class="step"><b class="n">1</b>{{What was sent / done on BOTH sides}}
+<div class="crop" style="height:150px"><img src="req.png"></div></div>
+<div class="step"><b class="n">2</b>Compare the two answers below. Only read the yellow box on each side.</div>
+<div class="cols">
+ <div class="col a"><div class="tag">A = {{base}} @ {{sha}} (before)</div>
+  <div class="look"><span class="bad"><b>{{code + plain meaning}}</b></span> Look for <mark>{{exact text}}</mark>. {{why}}</div>
+  <img src="a.png"></div>
+ <div class="col b"><div class="tag">B = {{branch}} @ {{sha}} (after)</div>
+  <div class="look"><span class="good"><b>{{code + plain meaning}}</b></span> Look for <mark>{{exact text}}</mark>. {{why}}</div>
+  <img src="b.png"></div>
+</div>
+<div class="verdict">✅ PROVEN: {{one-line verdict}}</div>
+<div class="st">In plain words: {{everyday analogy}}</div>
+</main>

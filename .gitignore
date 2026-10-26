@@ -2,3 +2,5 @@ node_modules/
 .chandlery/
 *.log
 .DS_Store
+__pycache__/
+*.pyc

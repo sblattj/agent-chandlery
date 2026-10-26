@@ -1,7 +1,14 @@
 {
-  "_comment": "Link manifest for dotfiles-style linkers: src is relative to this file. A src ending in /* links each child into dst.",
+  "_comment": "Link manifest for dotfiles-style linkers: src is relative to this file. A src ending in /* links each child into dst. \"public\": true marks every skill here as public, so a dotfiles settings filter keeps their skillOverrides.",
+  "public": true,
   "links": [
-    { "src": "skills/*", "dst": "~/.claude/skills/" },
-    { "src": "skills/*", "dst": "~/.pi/agent/skills/" }
+    {
+      "src": "skills/*",
+      "dst": "~/.claude/skills/"
+    },
+    {
+      "src": "skills/*",
+      "dst": "~/.pi/agent/skills/"
+    }
   ]
 }

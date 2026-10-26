@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compose service to Kubernetes objects</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1c1d21; --ink-2: #5b5e66; --line: #d9d7cf;
+    --aws: #b85f00; --aws-bg: #fff2e0;
+    --app: #2352b8; --app-bg: #e8efff;
+    --warn: #b3261e; --warn-bg: #fdecea;
+    --ok: #1f7a4d; --ok-bg: #e5f5ec;
+    --neutral-bg: #f0efea;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131417; --card: #1b1d21; --ink: #ecebe6; --ink-2: #a2a5ac; --line: #33363c;
+      --aws: #f2a44f; --aws-bg: #33250f;
+      --app: #86a9ff; --app-bg: #17223b;
+      --warn: #ff8f85; --warn-bg: #3a1b18;
+      --ok: #6fd3a0; --ok-bg: #14301f;
+      --neutral-bg: #23252a;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 40px 20px 64px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 780px; margin: 0 0 24px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  .sub { color: var(--ink-2); margin: 0 0 16px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin-bottom: 24px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 0 0 24px; font-size: 13px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 16px; height: 16px; border-radius: 4px; border: 2px solid; display: inline-block; }
+  .sw.aws { background: var(--aws-bg); border-color: var(--aws); }
+  .sw.app { background: var(--app-bg); border-color: var(--app); }
+  .sw.ext { background: var(--neutral-bg); border-color: var(--line); }
+  .sw.ok { background: var(--ok-bg); border-color: var(--ok); }
+  .scroll { overflow-x: auto; }
+  svg { display: block; width: 100%; min-width: 820px; height: auto; }
+  svg text { fill: var(--ink); font-family: inherit; white-space: pre; }
+  svg .t-title { font-size: 16px; font-weight: 650; }
+  svg .t-strong { font-size: 13.5px; font-weight: 600; }
+  svg .t-body { font-size: 12.5px; fill: var(--ink-2); }
+  svg .t-code { font-size: 12.5px; font-family: ui-monospace, "SF Mono", Menlo, monospace; fill: var(--ink); }
+  svg .t-mono { font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; fill: var(--ink-2); }
+  svg .t-name { font-size: 15px; font-weight: 600; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  svg .t-edge { font-size: 12px; fill: var(--ink-2); }
+  svg .c-a { fill: var(--app); font-weight: 700; }
+  svg .c-w { fill: var(--aws); font-weight: 700; }
+  svg .c-g { fill: var(--ok); font-weight: 700; }
+  svg .c-dim { fill: var(--ink-2); }
+  svg .b-ext { fill: var(--neutral-bg); stroke: var(--line); stroke-width: 1.5; }
+  svg .b-aws { fill: var(--aws-bg); stroke: var(--aws); stroke-width: 2; }
+  svg .b-app { fill: var(--app-bg); stroke: var(--app); stroke-width: 1.5; }
+  svg .b-chip { fill: var(--card); stroke: var(--line); stroke-width: 1; }
+  svg .b-code { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+  svg .edge { stroke: var(--ink-2); stroke-width: 1.8; fill: none; }
+  svg .edge.a { stroke: var(--app); }
+  svg .edge.w { stroke: var(--aws); }
+  svg .edge.g { stroke: var(--ok); }
+  svg .edge.dash { stroke-dasharray: 5 5; }
+  svg .brace { stroke-width: 2; fill: none; }
+  svg .brace.a { stroke: var(--app); }
+  svg .brace.w { stroke: var(--aws); }
+  svg .head { fill: var(--ink-2); }
+  svg .head-a { fill: var(--app); }
+  svg .head-w { fill: var(--aws); }
+  svg .head-g { fill: var(--ok); }
+  .caption { margin: 14px 0 0; color: var(--ink-2); font-size: 14px; }
+  .st { margin: 10px 0 0; padding: 10px 14px; border-left: 3px solid var(--app); background: var(--app-bg); border-radius: 0 8px 8px 0; font-size: 14px; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); font-weight: 600; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; background: var(--neutral-bg); padding: 1px 5px; border-radius: 4px; }
+  .why { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .why > div { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--bg); }
+  .why .n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--app-bg); color: var(--app); font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+  .why p { margin: 0; font-size: 14px; color: var(--ink-2); }
+  @media (max-width: 900px) { .why { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .why { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  ol.steps { margin: 0; padding-left: 22px; }
+  ol.steps li { margin-bottom: 6px; }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
+  .tag.aws { color: var(--aws); background: var(--aws-bg); }
+  .tag.app { color: var(--app); background: var(--app-bg); }
+  .tag.ext { color: var(--ink-2); background: var(--neutral-bg); }
+  .foot { color: var(--ink-2); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>From a Compose service to Kubernetes objects</h1>
+  <p class="lede">A <code>docker-compose.yml</code> service puts everything about one container in one block: image, ports, environment. Kubernetes splits the same facts across separate objects, because <em>running</em> a container and <em>reaching</em> it are different jobs there. Colors track the same value across both shapes.</p>
+
+  <div class="legend">
+    <span><i class="sw app"></i>You write it (in the repo)</span>
+    <span><i class="sw aws"></i>The converter does it</span>
+    <span><i class="sw ext"></i>Cluster objects</span>
+  </div>
+
+  <!-- ============ SAME SERVICE, TWO SHAPES ============ -->
+  <section class="card">
+    <h2>1. Same service, two shapes</h2>
+    <p class="sub">Image in blue, ports in amber, environment in green. The dashed amber curve: one compose port string becomes two Kubernetes fields.</p>
+    <div class="scroll">
+      <svg viewBox="0 0 1000 400" role="img" aria-label="A compose service on the left maps to a Kubernetes Deployment and Service on the right; image, ports and env are color-matched">
+        <defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker><marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-a" d="M0,0 L10,5 L0,10 z"/></marker><marker id="mw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-w" d="M0,0 L10,5 L0,10 z"/></marker><marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-g" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="b-code" x="20" y="20" width="400" height="360" rx="12"/>
+        <text class="t-title" x="40" y="50">docker-compose.yml</text>
+        <text class="t-body" x="40" y="70">one block per service, one host</text>
+        <text class="t-code" x="40" y="108">services:</text>
+        <text class="t-code" x="40" y="130">  web:</text>
+        <text class="t-code" x="40" y="152">    image: <tspan class="c-a">nginx:1.27</tspan></text>
+        <text class="t-code" x="40" y="174">    ports:</text>
+        <text class="t-code" x="40" y="196">      - &quot;<tspan class="c-w">8080</tspan>:<tspan class="c-w">80</tspan>&quot;</text>
+        <text class="t-code" x="40" y="218">    environment:</text>
+        <text class="t-code" x="40" y="240">      <tspan class="c-g">LOG_LEVEL: info</tspan></text>
+        <text class="t-body" x="40" y="300">Published port and container port</text>
+        <text class="t-body" x="40" y="318">share one string: &quot;8080:80&quot;.</text>
+        <rect class="b-code" x="580" y="20" width="400" height="360" rx="12"/>
+        <text class="t-title" x="600" y="50">Kubernetes YAML</text>
+        <text class="t-body" x="600" y="70">the same service, split into objects</text>
+        <text class="t-code" x="600" y="108"><tspan class="c-dim"># Deployment (excerpt)</tspan></text>
+        <text class="t-code" x="600" y="130">containers:</text>
+        <text class="t-code" x="600" y="152">- name: web</text>
+        <text class="t-code" x="600" y="174">  image: <tspan class="c-a">nginx:1.27</tspan></text>
+        <text class="t-code" x="600" y="196">  ports: [{containerPort: <tspan class="c-w">80</tspan>}]</text>
+        <text class="t-code" x="600" y="218">  env:</text>
+        <text class="t-code" x="600" y="240">  - {<tspan class="c-g">name: LOG_LEVEL, value: info</tspan>}</text>
+        <text class="t-code" x="600" y="262"><tspan class="c-dim"># Service (excerpt)</tspan></text>
+        <text class="t-code" x="600" y="284">ports:</text>
+        <text class="t-code" x="600" y="306">- {port: <tspan class="c-w">8080</tspan>, targetPort: <tspan class="c-w">80</tspan>}</text>
+        <path class="edge" d="M430,58 L570,58" marker-end="url(#m1)"/>
+        <text class="t-strong" x="500" y="46" text-anchor="middle">kompose convert</text>
+        <text class="t-edge" x="500" y="78" text-anchor="middle">or by hand</text>
+        <path class="edge a" d="M218,148 C338,148 470,170 576,170" marker-end="url(#ma)"/>
+        <path class="edge w" d="M188,192 C308,192 470,192 576,192" marker-end="url(#mw)"/>
+        <path class="edge w dash" d="M188,192 C308,192 470,302 576,302" marker-end="url(#mw)"/>
+        <path class="edge g" d="M218,236 C338,236 470,236 576,236" marker-end="url(#mg)"/>
+      </svg>
+    </div>
+    <p class="caption">The <code>8080:80</code> string carries two ports. The container port (<code>80</code>) lands on the Deployment; the published port (<code>8080</code>) lands on the Service.</p>
+    <p class="st"><strong>S-T:</strong> compose is one index card per app. Kubernetes files the same card into separate drawers: "what to run" (Deployment) and "how to reach it" (Service).</p>
+  </section>
+
+  <!-- ============ WHY ============ -->
+  <section class="card">
+    <h2>Why split it at all?</h2>
+    <p class="sub">Four reasons the extra objects earn their keep.</p>
+    <div class="why">
+      <div><span class="n">1</span><h3>Many hosts</h3><p>Compose targets one machine. A Deployment can place replicas on any node, so the address can't live on the container.</p></div>
+      <div><span class="n">2</span><h3>Stable address</h3><p>Pods come and go. The Service keeps one name and port while the pods behind it change.</p></div>
+      <div><span class="n">3</span><h3>Separate lifecycles</h3><p>Rolling out a new image touches the Deployment only. The Service, and every client using it, stays put.</p></div>
+      <div><span class="n">4</span><h3>Not 1:1</h3><p><code>depends_on</code> and <code>build:</code> have no direct twin. Startup order becomes readiness probes; builds need an image in a registry.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ HOW THE SPLIT HAPPENS ============ -->
+  <section class="card">
+    <h2>2. How one service becomes several objects</h2>
+    <p class="sub">One compose block in, one object per concern out.</p>
+    <div class="scroll">
+      <svg viewBox="0 0 1000 300" role="img" aria-label="One compose service goes through kompose convert and becomes a Deployment, a Service and, if it has volumes, a PersistentVolumeClaim">
+        <defs><marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="b-app" x="20" y="100" width="230" height="120" rx="10"/>
+        <text class="t-strong" x="36" y="128">web (compose service)</text>
+        <text class="t-mono" x="36" y="152">image, ports,</text>
+        <text class="t-mono" x="36" y="172">environment, volumes</text>
+        <text class="t-body" x="36" y="200">you write it, in the repo</text>
+        <path class="edge" d="M250,160 L298,160" marker-end="url(#m2)"/>
+        <rect class="b-aws" x="300" y="30" width="280" height="260" rx="14"/>
+        <text class="t-title" x="320" y="60">kompose convert</text>
+        <text class="t-body" x="320" y="80">the tool splits one block</text>
+        <rect class="b-chip" x="320" y="96" width="240" height="50" rx="8"/>
+        <text class="t-strong" x="336" y="117">1  image + env</text>
+        <text class="t-mono" x="336" y="136">-&gt; Deployment</text>
+        <rect class="b-chip" x="320" y="158" width="240" height="50" rx="8"/>
+        <text class="t-strong" x="336" y="179">2  ports</text>
+        <text class="t-mono" x="336" y="198">-&gt; Service</text>
+        <rect class="b-chip" x="320" y="220" width="240" height="50" rx="8"/>
+        <text class="t-strong" x="336" y="241">3  named volumes</text>
+        <text class="t-mono" x="336" y="260">-&gt; PersistentVolumeClaim</text>
+        <text class="t-body" x="320" y="280">depends_on has no direct twin.</text>
+        <path class="edge" d="M580,160 C620,160 620,80 658,80" marker-end="url(#m2)"/>
+        <path class="edge" d="M580,160 L658,160" marker-end="url(#m2)"/>
+        <path class="edge" d="M580,160 C620,160 620,240 658,240" marker-end="url(#m2)"/>
+        <rect class="b-ext" x="660" y="50" width="300" height="60" rx="10"/>
+        <text class="t-strong" x="678" y="76">Deployment</text>
+        <text class="t-mono" x="678" y="96">runs nginx:1.27 pods</text>
+        <rect class="b-ext" x="660" y="130" width="300" height="60" rx="10"/>
+        <text class="t-strong" x="678" y="156">Service</text>
+        <text class="t-mono" x="678" y="176">8080 -&gt; pod port 80</text>
+        <rect class="b-ext" x="660" y="210" width="300" height="60" rx="10"/>
+        <text class="t-strong" x="678" y="236">PersistentVolumeClaim</text>
+        <text class="t-mono" x="678" y="256">only if volumes: exist</text>
+      </svg>
+    </div>
+    <p class="caption">The converter is a starting point. Review its YAML before applying it: resource limits, probes and secrets usually need hand edits.</p>
+  </section>
+
+  <!-- ============ SIDE BY SIDE ============ -->
+  <section class="card">
+    <h2>Side by side</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Compose service</th><th>Kubernetes</th></tr></thead>
+        <tbody>
+          <tr><td>Unit</td><td>One <code>services.web</code> block</td><td>Deployment + Service (+ PVC, ConfigMap)</td></tr>
+          <tr><td>Image</td><td><code>image: nginx:1.27</code></td><td><code>containers[].image</code> on the Deployment</td></tr>
+          <tr><td>Ports</td><td><code>"8080:80"</code>, published:container</td><td><code>containerPort: 80</code> on the pod, <code>port: 8080</code> on the Service</td></tr>
+          <tr><td>Environment</td><td><code>environment:</code> map</td><td><code>env:</code> list, or a ConfigMap / Secret</td></tr>
+          <tr><td>Startup order</td><td><code>depends_on</code></td><td>No direct twin: readiness probes and retries</td></tr>
+          <tr><td>Runs on</td><td>One Docker host</td><td>Any node the scheduler picks</td></tr>
+          <tr><td>Who writes it</td><td>You <span class="tag app">repo</span></td><td>The converter drafts it <span class="tag aws">tool</span>, you review it <span class="tag app">repo</span>, the cluster runs it <span class="tag ext">cluster</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ END TO END ============ -->
+  <section class="card">
+    <h2>One service, end to end</h2>
+    <p class="sub">"Move the web service from compose to a cluster"</p>
+    <ol class="steps">
+      <li>You already have <code>services.web</code> in <code>docker-compose.yml</code>. <span class="tag app">repo</span></li>
+      <li><code>kompose convert</code> writes <code>web-deployment.yaml</code> and <code>web-service.yaml</code>. <span class="tag aws">tool</span></li>
+      <li>You add probes and resource limits, and move secrets out of <code>env:</code>. <span class="tag app">repo</span></li>
+      <li><code>kubectl apply -f .</code> creates the objects. <span class="tag ext">cluster</span></li>
+      <li>The scheduler places the pod on a node; the Service routes <code>8080</code> to pod port <code>80</code>. <span class="tag ext">cluster</span></li>
+    </ol>
+  </section>
+
+  <p class="foot"><strong>Unverified:</strong> this page is a layout example for the sketch skill, not checked against a live cluster. Converter output (file names, defaults) varies by version. <code>nginx:1.27</code> and <code>LOG_LEVEL</code> are illustrative.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "size": [1280, 800],
+  "cards": {
+    "title": "<h1>Feature X: A/B proof</h1><h2>PR #123</h2><p><span class=\"tag a\">A</span>main abc1234</p><p><span class=\"tag b\">B</span>main + PR #123 <span class=\"k\">FEATURE_FLAG=true</span></p><p><small>Same seed, same message on both sides.</small></p>",
+    "verdict": "<h2>Verdict</h2><p><span class=\"tag a\">A</span><span class=\"r\">falls back</span></p><p><span class=\"tag b\">B</span><span class=\"g\">fills the variables</span></p>"
+  },
+  "banners": { "A": ["#b91c1c", "A · base"], "B": ["#15803d", "B · PR"] }
+}

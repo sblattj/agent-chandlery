@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# identity-guard hook: a github.com/<owner> repo commits only as <owner> <email>. No-op elsewhere.
+# Expected identity comes from git config identity-guard.owner / identity-guard.email
+# (written by identity-guard.sh). No config = no-op.
+owner=$(git config identity-guard.owner || true); email=$(git config identity-guard.email || true)
+[[ -n "$owner" && -n "$email" ]] || exit 0
+url=$(git remote get-url origin 2>/dev/null || true)
+case "$url" in *github.com[:/]"$owner"/*) ;; *) exit 0;; esac
+want="$owner <$email>"
+for v in GIT_AUTHOR_IDENT GIT_COMMITTER_IDENT; do
+  id=$(git var "$v" | sed 's/ [0-9]* [-+][0-9]*$//')
+  if [[ "$id" != "$want" ]]; then
+    echo "REFUSED: $v is '$id' in a $owner repo; must be '$want'." >&2
+    echo "Fix: git config --local --unset user.email; git config --local --unset user.name; unset GIT_AUTHOR_*/GIT_COMMITTER_* env" >&2
+    exit 1
+  fi
+done
+exit 0
