@@ -1,6 +1,6 @@
 ---
 name: resolve-pr-threads-and-conflicts-and-merge
-description: "Land an approved GitHub PR end to end: reply to and resolve every open review thread, update or fix a stale or conflicting branch, then merge (auto-merge if blocked) and wait until MERGED. Triggers on: merge this PR, resolve the threads and merge, base branch policy prohibits the merge, BLOCKED with approvals, conversation resolution required, get this PR merged, land the PR."
+description: "Land an approved GitHub PR end to end: reply to and resolve every open review thread, update or fix a stale or conflicting branch, then merge (auto-merge if blocked) and wait until MERGED. Triggers on: merge this PR, resolve the threads and merge, base branch policy prohibits the merge, BLOCKED with approvals, conversation resolution required, BLOCKED again after update, get this PR merged, land the PR."
 ---
 
 # Resolve threads, fix conflicts, merge
@@ -41,6 +41,12 @@ What the script does:
 - **Never re-request reviewers or @mention them** to speed things up: re-requesting resets a standing approval. Draft a chat nudge for the user instead.
 - **Fast-forward the local branch before merging the base.** A worktree was 5 commits behind its remote, and merging the base into it produced a conflict that doesn't exist on the real branch. Run `git merge --ff-only origin/<branch>` first.
 - **Red CI after merging the base can be the base branch's fault.** A PR touching one UI test failed the bundle budget check, because an earlier PR had merged with that check red, and the base branch's own run skipped the UI job. Check the last PR touching the failing area (`gh pr view <n> --json statusCheckRollup`) before you debug your own diff. If the base is broken, fix it in its own PR, merge that, then update-branch.
+- **Updating a BEHIND branch can re-block it.** Merging the base re-ran an AI review bot, which opened a fresh thread 20 minutes later:
+  CI went green, then `mergeStateStatus` was BLOCKED again with 1 open thread. Recount unresolved threads after every push, not once.
+- **Declining a bot finding:** start the reply with `Won't fix:` (or "by design"), then the reason. prxref-style reviewers read that
+  opener as a decline and stop re-raising it; a reply like "invalid, because..." is not recognized.
+- **Stacked PR refuses the merge** (`This pull request is part of a stack and must be merged using the asynchronous merge REST API`,
+  REST returns 403 too): use `merge-async` from `landing-stacked-prs`; it returned 202, then `merged` within 20s.
 - **Polling needs retries.** One `Post .../graphql: EOF` killed a 40-minute wait; `land.sh` now retries transient gh errors.
 - Repos with an identity rule against the merge button (it stamps a display name): don't use this script there. Fast-forward with `git push origin <branch>:<base>`.
 
