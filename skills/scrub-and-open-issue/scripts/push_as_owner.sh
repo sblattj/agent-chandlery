@@ -115,7 +115,7 @@ if [[ "$cmd" == "push" ]]; then
     echo "push $rs: $n commit(s)"
   done
   [[ "$check_only" == "1" ]] && { echo "check-only: not pushed"; exit 0; }
-  git push "${set_upstream[@]}" "$remote" "${refspecs[@]}"
+  git push ${set_upstream[@]+"${set_upstream[@]}"} "$remote" "${refspecs[@]}"
   echo "pushed as: $owner"
   exit 0
 fi
