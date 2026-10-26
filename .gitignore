@@ -4,3 +4,5 @@ node_modules/
 .DS_Store
 __pycache__/
 *.pyc
+# built on first use by narr.sh crop
+skills/narrated-screenshot/crop
