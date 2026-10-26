@@ -1,0 +1,22 @@
+{
+  "name": "agent-chandlery",
+  "version": "0.1.0",
+  "description": "Agent skills and goal-state loops for Claude Code, Kiro and Codex: fan-out with verification, evidence-first PRs, stacked PRs, skill hygiene",
+  "type": "module",
+  "bin": {
+    "chandlery": "bin/chandlery.mjs",
+    "agent-chandlery": "bin/chandlery.mjs"
+  },
+  "files": ["bin", "lib", "skills", "manifest.json", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "scrub": "node scripts/scrub-check.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["agent-skills", "claude-code", "claude-skills", "kiro", "codex", "agentic-coding", "goal-state", "ai-agents", "skills", "sdlc"],
+  "author": "sblattj",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/sblattj/agent-chandlery.git" },
+  "homepage": "https://github.com/sblattj/agent-chandlery#readme",
+  "bugs": "https://github.com/sblattj/agent-chandlery/issues"
+}
