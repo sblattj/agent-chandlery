@@ -1,6 +1,6 @@
 ---
 name: landing-stacked-prs
-description: "Unwind a chain of stacked PRs (each based on the previous PR's branch) and land them into the base branch (develop/main/master) one layer at a time, without needing a CI trigger allowlist for intermediate branches. Handles GitHub native stacks via the merge-async API. Triggers on: land the stack, unwind the stacked PRs, merge the PR stack into develop, retarget the stack to main, part of a stack, merge-async, auto-merge is not supported for stacked pull requests."
+description: "Unwind a chain of stacked PRs (each based on the previous PR's branch) and land them into the base branch (develop/main/master) one layer at a time, without needing a CI trigger allowlist for intermediate branches. Handles GitHub native stacks via the merge-async API. Triggers on: land the stack, unwind the stacked PRs, merge the PR stack into develop, retarget the stack to main, part of a stack, merge-async, auto-merge is not supported for stacked pull requests, fold the stack into its bottom PR."
 ---
 
 # Landing stacked PRs into the base branch
@@ -76,6 +76,17 @@ gh api repos/$R/pulls/$PR/merge-async/$u --jq '.status+" "+(.details.message//""
 - After each squash, the next layer is often DIRTY on files both touched (an ADR, a version list): merge base into it, resolve, push, wait for CI, then merge-async it.
 - Approvals survive base syncs in repos that don't dismiss stale reviews (check `required_pull_request_reviews.dismiss_stale_reviews` in branch protection). The real gate is often CODEOWNERS approval for each touched path, not the approval count (`pr-approval-gate` lists the gaps).
 - To keep every open PR current with its base between landings, run a base-sync pass: merge the base into each open PR branch and push (plain merges, no force-push).
+
+## Folding a stack that only works as a whole
+
+When the layers only build together (the bottom changes a version the upper layers need), land the whole stack as ONE squash of the bottom PR instead of one squash per layer.
+
+- Mid-stack merge-async fails with `Required status check "<gate>" is failing`: the stack shares one required check, and it stays red until the bottom PR holds every layer. Squashing upward is blocked.
+- Fold top down by fast-forward instead: for each child, check `git merge-base --is-ancestor origin/<parent> origin/<child>`, then `git push origin origin/<child>:refs/heads/<parent>`. GitHub marks the child PR merged. No force-push. The layer branches keep full history; only the base gets the single squash.
+- Before each fold, resolve the child's open review threads; each push re-runs bots and can add new threads on the parent.
+- With `delete_branch_on_merge`, squashing the layer under the folded PR retargets it to the base by itself. It then shows DIRTY (the squash rewrote that layer's history). If the base tree equals that layer's last head tree (`git rev-parse origin/<base>^{tree}` vs `<old head>^{tree}`), `git merge -s ours origin/<base>` is exact: confirm `HEAD^{tree}` did not change, then push.
+- `gh pr merge --match-head-commit` needs the full 40-char SHA; a short one fails with `Could not coerce value "<sha>" to GitObjectID`.
+- The folded PR's approvals were given before the fold. Say so; the upper layers were approved on their own PRs.
 
 ## Conflict resolution
 

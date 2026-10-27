@@ -45,6 +45,10 @@ What the script does:
   CI went green, then `mergeStateStatus` was BLOCKED again with 1 open thread. Recount unresolved threads after every push, not once.
 - **Declining a bot finding:** start the reply with `Won't fix:` (or "by design"), then the reason. prxref-style reviewers read that
   opener as a decline and stop re-raising it; a reply like "invalid, because..." is not recognized.
+- **Pre-existing or introduced?** Check the flagged line on the base before replying: `git show origin/<base>:<path> | grep -n '<code>'`.
+  Same code on the base: `Won't fix: pre-existing. <base> already does X here (File.java:N); this PR only <what it changed>.` Anything the
+  PR introduced gets fixed, then `Fixed in <sha>`. New code that follows an established base convention is neither: cite the convention and
+  how often the base uses it, and flag it to the user as a judgment call rather than calling it pre-existing.
 - **Stacked PR refuses the merge** (`This pull request is part of a stack and must be merged using the asynchronous merge REST API`,
   REST returns 403 too): use `merge-async` from `landing-stacked-prs`; it returned 202, then `merged` within 20s.
 - **Polling needs retries.** One `Post .../graphql: EOF` killed a 40-minute wait; `land.sh` now retries transient gh errors.
