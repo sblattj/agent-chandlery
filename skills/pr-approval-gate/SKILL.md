@@ -19,6 +19,10 @@ $G -R owner/repo --author <login>    # someone else's PRs
 
 Per PR: `[ready|draft, stacked on X]`, merge state, `approved:`, `owner gaps: <pattern> -> a or b`, and `needs:` (mark ready, code owner, more approvals, changes requested, conflicts, behind base). `--json` is for downstream tooling (for example, drafting a reviewer nudge from the gaps). About 15s for 23 PRs. Read-only.
 
+PR numbers need `--pr`: `$G 1750 1806` fails with `unrecognized arguments` (the first number is read as the repo folder).
+
+Group the `owner gaps` by person to find who unblocks the most: once, one catch-all owner's approval would have cleared 8 of 11 PRs, while one PR with two approvals still needed a path owner.
+
 To answer "which PRs need person X", grep the output for their login in `owner gaps`.
 
 ## Why it's built this way (friction mined)
