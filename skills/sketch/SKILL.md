@@ -5,7 +5,7 @@ description: "Build a styled, self-contained LOCAL HTML visual explainer (inline
 
 ## More triggers
 
-html visual of, make a local html diagram, visualize the architecture, styled html page for me to look at, this is ugly make it look like this theme, design page with diagrams for these PRs, ownership color legend, side-by-side comparison table, one-request-both-worlds walkthrough, S-T line, eyeball the PNGs, html file that defines terms with examples from the repo, glossary page, add more hand drawn svg so i can visualize these technologies, lint the svgs for overlaps, labels are clipped, which model draws better svg, compare the two sets of figures
+html visual of, make a local html diagram, visualize the architecture, styled html page for me to look at, this is ugly make it look like this theme, design page with diagrams for these PRs, ownership color legend, side-by-side comparison table, one-request-both-worlds walkthrough, S-T line, eyeball the PNGs, html file that defines terms with examples from the repo, glossary page, add more hand drawn svg so i can visualize these technologies, lint the svgs for overlaps, labels are clipped, which model draws better svg, compare the two sets of figures, bundle these pages into one shareable html file
 
 # sketch
 
@@ -57,6 +57,7 @@ One local HTML page that makes a concept click visually, usually "X vs Y" or "wh
 - **Fanning out SVG-heavy pages to subagents: use your strongest model.** On the same 10-page spec, the stronger model drew about 1.5x the labels with zero layout defects and caught real code-level review points; the cheaper one was faster and used fewer tokens but left clipped labels and a label crossing a box. Use the cheaper model for drafts. Subagents never render their SVGs, so the orchestrator lints and screenshots after they finish.
 - **Comparing two sets of pages:** regex-extract every `<svg ...viewBox...>...</svg>` from both sets into one two-column page (shared style head and `<defs>`, one `id="<page>-<i>"` per pair). Lint that page once and screenshot pairs by `#id` instead of visiting 60 figures.
 - **Self-contained:** no remotely loaded assets or CDN fonts. Ordinary source-citation links are allowed; following them requires a connection. Confirm the page itself loads without external asset requests.
+- **Sharing one HTML attachment:** recipients cannot use links into the author's folders. When combining pages, embed required CSS, scripts, SVGs and other assets (data URLs where needed), then replace links between included pages with internal navigation. Namespace chapter IDs and update anchors, SVG `href`/`xlink:href` and `url(#...)` references, plus CSS/JS and accessibility references to those IDs. Retain public and source web links as citations; these may need network access or authorization. Validate a copy in an empty folder offline: no duplicate IDs, broken fragments, local file links or asset dependencies on the original folders. An attachment is not a hosted URL; uploading or publishing it requires the user's request.
 - **Page conventions:** an `S-T:` simple translation for the jargon, plain wording, and an `Unverified:` line for assumptions instead of hiding them. If the user has typography rules (characters or words to avoid), enforce them with `SKETCH_BANNED_RE`.
 
 ## Related
