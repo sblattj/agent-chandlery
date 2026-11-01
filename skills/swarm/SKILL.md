@@ -62,7 +62,7 @@ Helpers live in `${SKILL_DIR:-~/.claude/skills/swarm}`: `swarm.workflow.js` (the
 
 - `xx`: same engine with `mode: "write"`.
 - `swarm-prompt`: writes a fan-out prompt but doesn't run it.
-- `forge-skill`: harden this skill after real runs.
+- `forge-skill-from-session-friction`: harden this skill after real runs.
 - `swarm-unit-pack`: pack 50+ units into per-unit files so the Workflow args stay small.
 - `big-tool-result`: read the full `tasks/<id>.output` when the inline result is truncated.
 

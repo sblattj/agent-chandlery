@@ -1,6 +1,6 @@
 ---
-name: work-overview
-description: "Produce a high-level narrative overview of what ONE person shipped across specific LOCAL repos over a date range, straight from git log: terminal prose, no HTML, no org discovery. Repos, since-date, author and ticket pattern are optional arguments (else cwd repo, 14 days, git user.name). Triggers on: high level overview of my work, what did I work on, what have I done since <date>, summarize my commits, recap my work in <repo>, what did I ship this month in these repos."
+name: work-overview-from-git-log
+description: "Produce a high-level narrative overview of what ONE person shipped across specific LOCAL repos over a date range, straight from git log: terminal prose, no HTML, no org discovery. Repos, since-date, author and ticket pattern are optional arguments (else cwd repo, 14 days, git user.name). Triggers on: work-overview (old name), high level overview of my work, what did I work on, what have I done since <date>, summarize my commits, recap my work in <repo>, what did I ship this month in these repos."
 ---
 
 # Work Overview (single person, local repos, terminal)
@@ -10,7 +10,7 @@ Answers "high-level overview of <person>'s work from <date> til now" for a given
 ## Do this
 
 ```bash
-O=${SKILL_DIR:-~/.claude/skills/work-overview}/overview.sh
+O=${SKILL_DIR:-~/.claude/skills/work-overview-from-git-log}/overview.sh
 bash $O --since 2026-09-01 ~/dev/acme-api ~/dev/acme-web
 SINCE=2026-08-01 AUTHOR='Doe' REPOS="$HOME/dev/acme-api" bash $O
 bash $O --ticket-re 'PROJ-[0-9]+' ~/dev/acme-api      # tracker ids in your own format

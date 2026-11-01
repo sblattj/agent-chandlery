@@ -1,9 +1,9 @@
 ---
-name: forge-skill
-description: "Turn what just happened in a session into a reusable skill, or harden an existing one, by mining the friction (repeated manual steps, dead-ends, non-obvious flags, decisions the user had to make) into a fast shortcut. Triggers on: make a skill for this, turn this into a skill, create a reusable skill, skillify this, add a skill, harden a skill, improve a skill, mine this session for a skill, capture this workflow, so I can do this faster next time."
+name: forge-skill-from-session-friction
+description: "Turn what just happened in a session into a reusable skill, or harden an existing one, by mining the friction (repeated manual steps, dead-ends, non-obvious flags, decisions the user had to make) into a fast shortcut. Triggers on: forge-skill (old name), make a skill for this, turn this into a skill, create a reusable skill, skillify this, add a skill, harden a skill, improve a skill, mine this session for a skill, capture this workflow, so I can do this faster next time."
 ---
 
-# forge-skill: mine session friction into a skill
+# forge-skill-from-session-friction: mine session friction into a skill
 
 Use when a task in this session is worth repeating and you want the *next* session to do it
 in one step instead of re-deriving it. Works for both **new** skills and **hardening** an

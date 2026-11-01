@@ -35,5 +35,5 @@ Reconcile agents then grep these instead of calling gh/az/git themselves, which 
 
 ## Related
 
-- `work-overview`: narrative recap from git alone.
+- `work-overview-from-git-log`: narrative recap from git alone.
 - `swarm`: fan reconcile units out over these frozen files.

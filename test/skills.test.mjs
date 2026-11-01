@@ -22,14 +22,14 @@ test("install copies into each client's project dir with an ownership mark", () 
   const r = skills.install({ clients: ["claude", "kiro", "codex"], project, only: ["goal-state"] });
   assert.equal(r.length, 3);
   for (const rel of [".claude/skills", ".kiro/skills", ".agents/skills"]) {
-    assert.ok(existsSync(join(project, rel, "goal-state", "SKILL.md")), rel);
-    assert.ok(existsSync(join(project, rel, "goal-state", ".chandlery.json")), rel);
+    assert.ok(existsSync(join(project, rel, "goal-file-autonomous-run-until-evidence", "SKILL.md")), rel);
+    assert.ok(existsSync(join(project, rel, "goal-file-autonomous-run-until-evidence", ".chandlery.json")), rel);
   }
 });
 
 test("install never replaces a skill it did not put there unless forced", () => {
   const project = tmp();
-  const dst = join(project, ".claude/skills/goal-state");
+  const dst = join(project, ".claude/skills/goal-file-autonomous-run-until-evidence");
   mkdirSync(dst, { recursive: true });
   writeFileSync(join(dst, "SKILL.md"), "mine");
   const r = skills.install({ project, only: ["goal-state"] });
@@ -42,7 +42,7 @@ test("install never replaces a skill it did not put there unless forced", () => 
 test("install --link symlinks, user scope resolves under home, dry run writes nothing", () => {
   const home = tmp();
   skills.install({ scope: "user", home, link: true, only: ["goal-state"] });
-  assert.ok(lstatSync(join(home, ".claude/skills/goal-state")).isSymbolicLink());
+  assert.ok(lstatSync(join(home, ".claude/skills/goal-file-autonomous-run-until-evidence")).isSymbolicLink());
   const project = tmp();
   skills.install({ project, dryRun: true });
   assert.ok(!existsSync(join(project, ".claude")));
@@ -51,4 +51,13 @@ test("install --link symlinks, user scope resolves under home, dry run writes no
 test("unknown skill and unknown client fail loudly", () => {
   assert.throws(() => skills.install({ project: tmp(), only: ["nope"] }), /no such skill/);
   assert.throws(() => skills.install({ project: tmp(), clients: ["vim"] }), /unknown client/);
+});
+
+test("old skill names still work as --only aliases and resolve to the new folder", () => {
+  const project = tmp();
+  const a = skills.install({ project, only: ["goal-state"], dryRun: true });
+  const b = skills.install({ project, only: ["goal-file-autonomous-run-until-evidence"], dryRun: true });
+  assert.equal(a[0].skill, "goal-file-autonomous-run-until-evidence");
+  assert.equal(a[0].dst, b[0].dst);
+  assert.throws(() => skills.install({ project, only: ["no-such-skill"], dryRun: true }), /no such skill/);
 });

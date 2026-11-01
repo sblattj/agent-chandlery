@@ -138,4 +138,4 @@ scrub on by default either way.
 - `scrub-and-open-issue`: the PII/identifier scrub discipline this reuses.
 - `going-all-in-or-about-to-claim-done`: max-scope delivery gated by evidence, for when a build swarm must finish
   the whole feature and prove it.
-- `forge-skill`: how this skill itself was authored (mine session friction into a shortcut).
+- `forge-skill-from-session-friction`: how this skill itself was authored (mine session friction into a shortcut).

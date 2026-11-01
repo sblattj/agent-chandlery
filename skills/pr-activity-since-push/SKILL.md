@@ -168,5 +168,5 @@ gh api repos/<owner>/<repo>/pulls/<N>/comments --paginate --slurp | jq '[.[][] |
 
 - Who still has to approve (CODEOWNERS gaps): `pr-approval-gate`.
 - Prove a fix / post evidence: the `pr-ab-evidence` skill.
-- Forge/harden a skill from session friction: `forge-skill`.
+- Forge/harden a skill from session friction: `forge-skill-from-session-friction`.
 - Re-review a teammate's PR after they reply or push (claimed fix commits on head?): `pr-rereview-after-reply`.

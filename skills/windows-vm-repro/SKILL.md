@@ -1,9 +1,10 @@
 ---
 name: windows-vm-repro
-description: "Reproduce Windows-only bugs from a Mac by driving a VMware Fusion Windows 11 VM with vmrun: build the VM with no clicks, bootstrap it, stream results back, verify a published npm package, drive Kiro IDE over CDP via a port forward, and read the agent CLI debug log. Triggers on: reproduce on windows, it only happens on windows, test on windows VM, vmware fusion VM, vmrun runProgramInGuest, build a windows VM, kiro on windows, hooks not firing on windows, windows hook exit code, test the rc on windows, drive kiro ide, kiro ide over cdp, Processing -File failed because the file does not have a .ps1 extension."
+description: "Reproduce Windows-only bugs from a Mac by driving a VMware Fusion Windows 11 VM with vmrun: build the VM with no clicks, bootstrap it, stream results back, verify a published npm package, drive Kiro IDE over CDP via a port forward, and read the agent CLI debug log. Triggers on: reproduce on windows, it only happens on windows, test on windows VM, vmware fusion VM, vmrun runProgramInGuest, build a windows VM, kiro on windows, hooks not firing on windows, windows hook exit code, drive kiro ide, kiro ide over cdp, Processing -File failed because the file does not have a .ps1 extension."
 ---
 
 ## More triggers
+test the rc on windows.
 
 repro this on windows, field user is on windows, drive the windows VM, we have 0 visibility, get visibility, reply with pong, set up a windows test box, verify the published beta on windows, smoke the npm package on windows, does the release fix it on windows, VM is stopped, kiro IDE in the VM, remote debugging port in the VM, open a port in the VM, expose cdp to the mac, automate kiro ide, test .kiro/hooks in the IDE, do v2 kiro hooks fire, kiro ide sign in, screenshot kiro ide, self-update on windows, DEP0190 on self-update, isolated npm prefix in the VM, win.sh ps -f, output guard not enforced on windows
 
@@ -156,7 +157,7 @@ In plain words: Kiro on Windows runs each hook as `powershell -Command "<hook>"`
 
 ## Related
 
-- `forge-skill`: harden this skill the same way when a new Windows gotcha bites.
+- `forge-skill-from-session-friction`: harden this skill the same way when a new Windows gotcha bites.
 - `scrub-and-open-issue`: file the upstream Kiro issue (hook exit code via `powershell -Command`) without PII.
 - `kiro-context-probe`: what Kiro actually loads into context, on any OS.
 - `cdp-route-snapshots`: the same CDP driving, for web apps instead of the IDE.

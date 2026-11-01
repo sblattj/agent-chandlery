@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# work-overview: git-log-based high-level work overview for ONE person across
+# work-overview-from-git-log: git-log-based high-level work overview for ONE person across
 # specific local repos over a date range. Read-only. Run with `bash` (zsh-safe).
 #
 # Usage:

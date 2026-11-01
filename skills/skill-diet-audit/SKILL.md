@@ -44,4 +44,4 @@ Then:
 - One measured result: main session 35.9k -> 32.0k start tokens with 30+ skills moved off `on` and 14 descriptions trimmed.
 
 ## Related
-- `skill-trigger-ab`, `real-start-tokens`, `forge-skill` (600-char cap rule), `skill-hint-hook`.
+- `skill-trigger-ab`, `real-start-tokens`, `forge-skill-from-session-friction` (600-char cap rule), `skill-hint-hook`.

@@ -1,13 +1,13 @@
 ---
-name: sketch
-description: "Build a styled, self-contained LOCAL HTML visual explainer (inline SVG diagrams, ownership legend, comparison table, light + dark) grounded in real repo code, lint it, screenshot it in both themes, then open it. Local file only; never publish unless asked. Triggers on: sketch this, sketch X vs Y, visualize X locally, create a styled html visual, visual explainer, draw me a comparison, show me X vs Y as a diagram, explain this visually, who owns what diagram, replace the mermaid with hand-drawn svg."
+name: sketch-local-html-visual-explainer
+description: "Build a styled, self-contained LOCAL HTML visual explainer (inline SVG diagrams, ownership legend, comparison table, light + dark) grounded in real repo code, lint it, screenshot it in both themes, then open it. Local file only; never publish unless asked. Triggers on: sketch (old name), sketch this, sketch X vs Y, visualize X locally, create a styled html visual, visual explainer, draw me a comparison, show me X vs Y as a diagram, explain this visually, who owns what diagram, replace the mermaid with hand-drawn svg."
 ---
 
 ## More triggers
 
 html visual of, make a local html diagram, visualize the architecture, styled html page for me to look at, this is ugly make it look like this theme, design page with diagrams for these PRs, ownership color legend, side-by-side comparison table, one-request-both-worlds walkthrough, S-T line, eyeball the PNGs, html file that defines terms with examples from the repo, glossary page, add more hand drawn svg so i can visualize these technologies, lint the svgs for overlaps, labels are clipped, which model draws better svg, compare the two sets of figures, bundle these pages into one shareable html file
 
-# sketch
+# sketch-local-html-visual-explainer
 
 One local HTML page that makes a concept click visually, usually "X vs Y" or "who owns what", with every claim traced to real code.
 
@@ -15,9 +15,9 @@ One local HTML page that makes a concept click visually, usually "X vs Y" or "wh
 
 1. **Ground it first.** Pull the facts from source (file:line) or earlier in the session. Mark anything you haven't checked as unverified in a footer line. Quote `--include='*.java'` in grep, because zsh globs an unquoted `*.java` and fails with "no matches found".
    For an interactive study guide, an existing learner page, or downloadable SVGs, read [interactive guide checks](references/interactive-guides.md). Keep the latest requested scope and confirmed decisions consistent across lessons, diagrams, quizzes and recap cards.
-2. **Pick the path:** `${SKILL_DIR:-~/.claude/skills/sketch}/sketch.sh path <slug>`. This picks `<repo>/tmp/<slug>.html` when that path is gitignored, and `~/sketches/<slug>.html` otherwise.
+2. **Pick the path:** `${SKILL_DIR:-~/.claude/skills/sketch-local-html-visual-explainer}/sketch.sh path <slug>`. This picks `<repo>/tmp/<slug>.html` when that path is gitignored, and `~/sketches/<slug>.html` otherwise.
    Use a descriptive underscore filename, such as `python_dependency_access_report.html`, including for Desktop copies; avoid spaces and generic `index.html` handoffs. When a report links relative logs or JSON receipts, copy them alongside it with the directory structure intact. Exclude virtual environments, credentials and unrelated agent state. Verify the copied HTML and its linked evidence exist before handing over the Desktop path.
-3. **Write the page** by copying the structure and CSS tokens of `${SKILL_DIR:-~/.claude/skills/sketch}/reference.html` (a hosted vs self-hosted CI runner page). For code-to-code mapping (spec to tool, request to response, config to config), start from `reference-code.html` (a Compose service to Kubernetes objects). Both are neutral layout examples: replace their content, keep their classes. Keep the sections that fit:
+3. **Write the page** by copying the structure and CSS tokens of `${SKILL_DIR:-~/.claude/skills/sketch-local-html-visual-explainer}/reference.html` (a hosted vs self-hosted CI runner page). For code-to-code mapping (spec to tool, request to response, config to config), start from `reference-code.html` (a Compose service to Kubernetes objects). Both are neutral layout examples: replace their content, keep their classes. Keep the sections that fit:
    - title + lede (the one-sentence difference)
    - legend (ownership colors: `aws` class = vendor-run, `app` class = in-repo / yours, dashed = set up outside the repo, neutral = external, red = known gap)
    - one `.card` per diagram: inline SVG, a caption, an optional `.st` S-T box
@@ -26,7 +26,7 @@ One local HTML page that makes a concept click visually, usually "X vs Y" or "wh
    - an "Unverified:" footer
    Rename the owner classes when the domain isn't vendor vs your app (for example vendor/us/ops).
    S-T means "simple translation": one plain-language sentence, usually an analogy, under a diagram full of jargon.
-4. **Check + look:** `${SKILL_DIR:-~/.claude/skills/sketch}/sketch.sh check <file.html>`. It lints (Python 3 required), takes headless Chrome screenshots (`<file>-light.png`, `<file>-dark.png`) and opens the page. **Read both PNGs** and fix any overlaps before you tell the user it's done. Env: `SKETCH_NO_OPEN=1`, `SKETCH_NO_SHOT=1`, `SKETCH_WIDTH=1280`, `SKETCH_CHROME=<browser binary>`, `SKETCH_BANNED_RE=<regex>` (optional house-style lint, for example characters or words the user avoids).
+4. **Check + look:** `${SKILL_DIR:-~/.claude/skills/sketch-local-html-visual-explainer}/sketch.sh check <file.html>`. It lints (Python 3 required), takes headless Chrome screenshots (`<file>-light.png`, `<file>-dark.png`) and opens the page. **Read both PNGs** and fix any overlaps before you tell the user it's done. Env: `SKETCH_NO_OPEN=1`, `SKETCH_NO_SHOT=1`, `SKETCH_WIDTH=1280`, `SKETCH_CHROME=<browser binary>`, `SKETCH_BANNED_RE=<regex>` (optional house-style lint, for example characters or words the user avoids).
 5. Tell the user the path and what each section shows, then offer to publish it (only if they ask) or to add a section.
 
 ## Why it's built this way (friction mined)
@@ -62,6 +62,6 @@ One local HTML page that makes a concept click visually, usually "X vs Y" or "wh
 
 ## Related
 
-- `explain-concept`: text-first, code-grounded explanation of one term. Use sketch when they want to *see* it.
-- `narrated-screenshot`: captions real browser captures. Use sketch for drawn diagrams.
+- `explain-code-concept-from-source-with-snippets-and-handdrawn-svg`: text-first, code-grounded explanation of one term. Use this skill when they want to *see* it.
+- `narrated-screenshot`: captions real browser captures. Use this skill for drawn diagrams.
 - Slide decks are a different job: use a presentation tool, and reuse this skill's overflow check.

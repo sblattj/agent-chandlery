@@ -1,11 +1,13 @@
 ---
 name: scrub-and-open-issue
-description: 'Scrub PII, company and internal identifiers from a GitHub issue draft, then file it via gh as the target repo''s OWNER account (your personal account), never your work account; hard gate, no issue if gh cannot act as owner. Triggers on: "open a scrubbed issue", "file a sanitized bug/feature", "open an issue but scrub PII", "file this as the repo owner not my company account", "redact company info and open an issue", "report this upstream without leaking work stuff", "pii scrub please", "anonymize the speaker table".'
+description: 'Scrub PII and company identifiers from a GitHub issue draft, then file it via gh as the repo owner, not the work account. Triggers on: scrub PII, file as repo owner, not the work account, open a scrubbed issue.'
 ---
 
 ## More triggers
 
-working inside a company/org repo and hit a limitation of a tool or framework you want to report upstream; "open an anonymous issue on <owner/repo>"; "post replay evidence on the issue"; push or open a PR on a personal repo as its owner.
+Triggers on: "open a scrubbed issue", "file a sanitized bug/feature", "open an issue but scrub PII", "file this as the repo owner not my company account", "redact company info and open an issue", "report this upstream without leaking work stuff", "pii scrub please", "anonymize the speaker table".
+
+Also: working inside a company/org repo and hit a limitation of a tool or framework you want to report upstream; "open an anonymous issue on <owner/repo>"; "post replay evidence on the issue"; push or open a PR on a personal repo as its owner.
 
 # Scrub PII and open a GitHub issue as the repo owner
 

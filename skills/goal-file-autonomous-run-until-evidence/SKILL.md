@@ -1,9 +1,9 @@
 ---
-name: goal-state
-description: "Run a long autonomous push against one goal file: objective, success criteria, a plan of actions that only close with Claim / Evidence / Verdict, a time and turn budget, and a stop hook that keeps the agent going until the goal is achieved with evidence or truly blocked. Triggers on: set a goal, goal prompt, goal file, keep going until done, autonomous run, work until the tests pass, goal status, goal stalled, resume the goal, pause the goal, write a goal for a big push."
+name: goal-file-autonomous-run-until-evidence
+description: "Run a long autonomous push against one goal file: objective, success criteria, a plan of actions that only close with Claim / Evidence / Verdict, a time and turn budget, and a stop hook that keeps the agent going until the goal is achieved with evidence or truly blocked. Triggers on: goal-state (old name), set a goal, goal prompt, goal file, keep going until done, autonomous run, work until the tests pass, goal status, goal stalled, resume the goal, pause the goal, write a goal for a big push."
 ---
 
-# goal-state
+# goal-file-autonomous-run-until-evidence
 
 One file (`.chandlery/goal.json`) holds the goal. The `chandlery goal` CLI is the only writer, so the gates hold: an action can't close without evidence, the goal can't finish with open actions, and the budget stops the loop.
 

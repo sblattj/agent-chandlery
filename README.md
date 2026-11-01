@@ -16,7 +16,7 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 
 | Skill | What it does |
 |---|---|
-| [`goal-state`](skills/goal-state/SKILL.md) | One goal file per project: objective, success criteria, a plan whose actions close only with Claim / Evidence / Verdict, a clock and turn budget, and a stop hook that keeps the agent going. |
+| [`goal-file-autonomous-run-until-evidence`](skills/goal-file-autonomous-run-until-evidence/SKILL.md) (alias `goal-state`) | One goal file per project: objective, success criteria, a plan whose actions close only with Claim / Evidence / Verdict, a clock and turn budget, and a stop hook that keeps the agent going. |
 | [`going-all-in-or-about-to-claim-done`](skills/going-all-in-or-about-to-claim-done/SKILL.md) | Maximal-ambition delivery gated by an evidence ladder before anything is called done. |
 | [`swarm`](skills/swarm/SKILL.md) | Read-only fan-out: split a question into small units, run them on cheap agents, verify every claim. |
 | [`xx`](skills/xx/SKILL.md) | The write-capable swarm: fan out implementation units, verify, integrate. |
@@ -43,7 +43,7 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 
 | Skill | What it does |
 |---|---|
-| [`forge-skill`](skills/forge-skill/SKILL.md) | Turn what just happened in a session into a reusable skill by mining the friction. |
+| [`forge-skill-from-session-friction`](skills/forge-skill-from-session-friction/SKILL.md) | Turn what just happened in a session into a reusable skill by mining the friction. |
 | [`skill-diet-audit`](skills/skill-diet-audit/SKILL.md) | Per-skill usage vs context cost from session logs, with trim suggestions. |
 | [`skill-trigger-ab`](skills/skill-trigger-ab/SKILL.md) | A/B whether skills still fire after changing their descriptions or overrides. |
 | [`skill-hint-hook`](skills/skill-hint-hook/SKILL.md) | A prompt hook that ranks skills against the prompt and hints the best match. |
@@ -59,8 +59,8 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 |---|---|
 | [`codebase-memory`](skills/codebase-memory/SKILL.md) | Structural code questions over a code knowledge graph: callers, call chains, architecture. |
 | [`cbm-index`](skills/cbm-index/SKILL.md) | Index a repo into that graph the right way: survey, fitted ignore file, full mode. |
-| [`explain-concept`](skills/explain-concept/SKILL.md) | Explain a code concept grounded in real snippets, with a diagram when it helps. |
-| [`sketch`](skills/sketch/SKILL.md) | A styled local HTML explainer with hand-drawn SVG diagrams, linted in light and dark. |
+| [`explain-code-concept-from-source-with-snippets-and-handdrawn-svg`](skills/explain-code-concept-from-source-with-snippets-and-handdrawn-svg/SKILL.md) | Explain a code concept grounded in real snippets, with a diagram when it helps. |
+| [`sketch-local-html-visual-explainer`](skills/sketch-local-html-visual-explainer/SKILL.md) | A styled local HTML explainer with hand-drawn SVG diagrams, linted in light and dark. |
 | [`narrated-screenshot`](skills/narrated-screenshot/SKILL.md) | A self-explaining A/B screenshot with captions and a verdict. |
 | [`narrated-ab-video`](skills/narrated-ab-video/SKILL.md) | A narrated A/B proof video from recorded browser runs. |
 | [`cdp-route-snapshots`](skills/cdp-route-snapshots/SKILL.md) | ARIA snapshots of a list of routes through a CDP browser. |
@@ -69,7 +69,7 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 
 | Skill | What it does |
 |---|---|
-| [`work-overview`](skills/work-overview/SKILL.md) | A narrative overview of what one person shipped across local repos. |
+| [`work-overview-from-git-log`](skills/work-overview-from-git-log/SKILL.md) | A narrative overview of what one person shipped across local repos. |
 | [`evidence-dump`](skills/evidence-dump/SKILL.md) | Dump shipped-work evidence (PRs, commits) into one folder for reconciling. |
 | [`windows-vm-repro`](skills/windows-vm-repro/SKILL.md) | Reproduce Windows-only bugs from a Mac through a Parallels VM. |
 
@@ -85,7 +85,7 @@ Not on the npm registry yet: run it straight from GitHub with `npx github:sblatt
 npx github:sblattj/agent-chandlery install --client claude              # .claude/skills/
 npx github:sblattj/agent-chandlery install --client kiro                # .kiro/skills/
 npx github:sblattj/agent-chandlery install --client codex               # .agents/skills/
-npx github:sblattj/agent-chandlery install --only goal-state --dry-run
+npx github:sblattj/agent-chandlery install --only goal-state --dry-run   # old short names still work as aliases
 ```
 
 **For your user** (all projects): add `--scope user` (`~/.claude/skills`, `~/.kiro/skills`, `~/.codex/skills`). Add `--link` to symlink a clone instead of copying, so `git pull` updates them.
@@ -112,7 +112,7 @@ The CLI is the only writer, so the rules hold:
 - the budget (8 hours per window by default, optional turn and token caps) wraps up at 80% with one handoff turn, then pauses;
 - ten turns with no plan change pauses a stalled run.
 
-State lives in `.chandlery/goal.json` (atomic writes, mode 0600) with an append-only ledger beside it. Full reference: [skills/goal-state/SKILL.md](skills/goal-state/SKILL.md).
+State lives in `.chandlery/goal.json` (atomic writes, mode 0600) with an append-only ledger beside it. Full reference: [skills/goal-file-autonomous-run-until-evidence/SKILL.md](skills/goal-file-autonomous-run-until-evidence/SKILL.md).
 
 The design comes from [opencode-goal-pro-max-complete-plugin](https://github.com/sblattj/opencode-goal-pro-max-complete-plugin), a session-scoped `/goal` plugin for OpenCode by the same author, rebuilt here to be client-neutral: a file, a CLI and a stop hook instead of a host plugin API.
 
