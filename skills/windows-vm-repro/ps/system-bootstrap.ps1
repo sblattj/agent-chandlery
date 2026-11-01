@@ -3,7 +3,8 @@ $ErrorActionPreference = 'Continue'; $P = 'C:\Users\Public'
 certutil -generateSSTFromWU "$P\roots.sst" | Select-Object -Last 1
 if (Test-Path "$P\roots.sst") { Write-Host ("roots imported: " + @(Get-ChildItem "$P\roots.sst" | Import-Certificate -CertStoreLocation Cert:\LocalMachine\Root).Count) }
 $vc = Get-ChildItem "$P\vc_redist.*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($vc) { $p = Start-Process $vc.FullName -ArgumentList '/install /quiet /norestart' -Wait -PassThru; Write-Host "vc_redist exit=$($p.ExitCode)" }
-if (-not (Test-Path 'C:\Program Files\nodejs\node.exe')) { $m = Get-ChildItem "$P\node-*.msi" | Select-Object -First 1; if ($m) { Start-Process msiexec -ArgumentList "/i `"$($m.FullName)`" /qn /norestart" -Wait; Write-Host "node installed from $($m.Name)" } }
+# not $p: PowerShell names are case-insensitive, so it would overwrite $P
+if ($vc) { $vp = Start-Process $vc.FullName -ArgumentList '/install /quiet /norestart' -Wait -PassThru; Write-Host "vc_redist exit=$($vp.ExitCode)" }
+if (-not (Test-Path 'C:\Program Files\nodejs\node.exe')) { $m = Get-ChildItem "$P\node-*.msi" | Sort-Object { [version]($_.Name -replace '^node-v|-[^-]+\.msi$', '') } -Descending | Select-Object -First 1; if ($m) { Start-Process msiexec -ArgumentList "/i `"$($m.FullName)`" /qn /norestart" -Wait; Write-Host "node installed from $($m.Name)" } }
 if (-not (Test-Path 'C:\Program Files\Git\cmd\git.exe')) { $g = Get-ChildItem "$P\Git-*.exe" | Select-Object -First 1; if ($g) { Start-Process $g.FullName -ArgumentList '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES' -Wait; Write-Host "git installed from $($g.Name)" } }
 Write-Host "node=$(Test-Path 'C:\Program Files\nodejs\node.exe') git=$(Test-Path 'C:\Program Files\Git\cmd\git.exe')"
