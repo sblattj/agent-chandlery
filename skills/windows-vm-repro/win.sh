@@ -13,7 +13,7 @@
 #   bootstrap                   fresh-VM fixes: roots, VC++ runtime, Node, Git (downloaded on the Mac), kiro-cli, framework copy
 #   ps <file.ps1|-c "cmd"> ...  run a PowerShell script from the share (or inline) as the guest user, output streamed here
 #   sys <file.ps1> ...          same, as SYSTEM (installs without UAC; file is copied to C:\Users\Public first, run by sys-run.ps1)
-#   login                       print the kiro-cli login command for the user to run IN the VM (browser step)
+#   login                       kiro-cli device-flow login in the VM; the user allows it in the Mac browser
 #   pong [agent] [dir]          visibility smoke: version, whoami, agent list, "reply with pong"
 #   kiro <scenarios> [src]      Kiro hook repro scenarios (agent,nodeversion,default,subdir,hooktimeout,hookcrash,exit2,parent,fix); progress log streamed
 #   verdicts <scenario>         per-hook exit code / timeout / blocked from Kiro's debug log slice
@@ -99,7 +99,8 @@ case ${1:-status} in
       for i in $(seq 1 30); do gx echo up 2>/dev/null | grep -q up && { echo "$VM ready"; exit 0; }; sleep 10; done
       echo "$VM not answering guest exec after 5 min"; exit 1 ;;
   down) vr suspend "$VMX" && echo "$VM suspended" ;;
-  show) open -a "VMware Fusion" "$VMX" && echo "opened $VM window" ;;
+  # a VM started nogui never gets a Fusion window; suspended, the app resumes it in one ("vmrun start gui" fails then)
+  show) running && { vr suspend "$VMX" soft; sleep 5; }; open -a "VMware Fusion" "$VMX" && echo "resuming $VM in a Fusion window" ;;
   pkg) spec=${2:-${WIN_PKG_SPEC:-}}; [ -n "$spec" ] || { echo "usage: win.sh pkg <npm spec> (or set WIN_PKG_SPEC)"; exit 2; }
       reg=${WIN_NPM_REGISTRY:-}; d=$(mktemp -d); uc="$d/.npmrc"; (umask 077; : >"$uc")
       scope=""; [[ "$spec" == @*/* ]] && scope=${spec%%/*}
@@ -125,8 +126,9 @@ case ${1:-status} in
   ps) sync_ps; shift; if [ "${1:-}" = -c ]; then shift; c=$*; gx powershell -NoProfile -Command "\"${c//%/%%}\""; else psu "$@"; fi ;;
   sys) sync_ps; shift; pss "$@" ;;
   login) [ -n "$IDC_URL" ] && [ -n "$IDC_REGION" ] || { echo "set IDC_URL (IAM Identity Center start URL) and IDC_REGION first"; exit 2; }
-         echo "In the VM, open Windows Terminal (PowerShell) and run:"; echo "  kiro-cli login --license pro --identity-provider $IDC_URL --region $IDC_REGION"
-         echo "(browser: same start URL, expand region -> $IDC_REGION). Then: $0 pong" ;;
+         # headless device flow: the VM has no visible window, so the consent step happens in the Mac browser
+         echo "open the URL printed below in your Mac browser and allow access; this waits for it"
+         "$0" ps -c "kiro-cli login --identity-provider $IDC_URL --region $IDC_REGION --use-device-flow" && echo "next: $0 pong" ;;
   pong) sync_ps; psu pong.ps1 ${2:+-Agent "$2"} ${3:+-Dir "$3"} ;;
   kiro) sync_ps; [ -n "${3:-}" ] && sync_src "$3"; rm -f "$OUT/repro.log"; touch "$OUT/repro.log"; gx "del $G\\winrepro\\out\\repro.log 2>nul" >/dev/null
         GX_FOLLOW=repro.log psu kiro-repro.ps1 -Scenarios "${2:-agent,fix}" > "$OUT/driver.log" 2>&1 & run=$!

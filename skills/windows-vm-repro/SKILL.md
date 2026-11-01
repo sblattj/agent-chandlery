@@ -19,7 +19,7 @@ $W create                 # no VM yet: build Win11 arm64 from ~/Downloads/Window
 $W up                     # start the VM if stopped, wait until guest exec answers
 $W status                 # VM up? guest exec works? Y: mapped to the mirror?
 $W bootstrap              # fresh VM only: roots + VC++ + Node + Git + kiro-cli + framework copy
-$W login                  # prints the kiro-cli login line; the USER runs it in the VM (browser)
+$W login                  # device-flow kiro-cli login in the VM; the USER allows it in the Mac browser
 $W pong my-agent          # visibility gate: version, whoami, agent list, "reply with pong"
 $W kiro agent,fix         # scenarios, progress streamed live, then per-hook verdicts
 $W verdicts agent         # re-read Kiro's per-hook exit code / timeout / blocked for one scenario
@@ -62,7 +62,8 @@ Kiro scenarios (`ps/kiro-repro.ps1`), each in a fresh git repo with your framewo
 - **Run installs as SYSTEM** to avoid UAC: `win.sh sys` copies the script to `C:\Users\Public` (SYSTEM can't see `Y:`) and runs it from a one-shot `schtasks` SYSTEM task (`ps/sys-run.ps1`). The task's `/TR` is a quote-free wrapper `.cmd`: an inline command with embedded quotes fails `Invalid argument/option` under PowerShell 5.1. `/ST is earlier than current time` is a harmless warning.
 - **Write JSON from PowerShell 5.1 without a BOM.** `Set-Content -Encoding utf8` adds one, and Kiro then rejects every agent with "expected value at line 1 column 1" and falls back to `kiro_default` ("agent <name> not found"). That looked like a field finding and was our own bug. Use `[IO.File]::WriteAllText(path, text, (New-Object Text.UTF8Encoding $false))`.
 - **Quoting through vmrun + cmd + PowerShell is fragile.** Put logic in .ps1/.cjs files under `Y:` and run them with `-File`, and pass settings in a file (`repro.json`). Avoid inline `-Command` with nested quotes, and avoid `node -e` with quotes inside `Start-Process -ArgumentList` (it silently ran different code and gave a false exit 0). Start-Process also doesn't quote array args, so join them with explicit quotes.
-- **Kiro IdC region:** the profile name `KiroProfile-us-east-1` does not mean the Identity Center region is us-east-1. Check the real region (set `IDC_REGION`); the wrong region gives `InvalidRequestException`. Login needs a browser, so the user runs it in the VM.
+- **Kiro IdC region:** the profile name `KiroProfile-us-east-1` does not mean the Identity Center region is us-east-1. Check the real region (set `IDC_REGION`); the wrong region gives `InvalidRequestException`. `login` uses `--use-device-flow` without `--license` (with `--license` and no terminal kiro-cli says "No region was given ... leave out --license"), prints a code and URL, and waits; the user allows it in the Mac browser.
+- **The Fusion app can't attach to a VM started by `vmrun start nogui`.** `open -a "VMware Fusion" <vmx>` on the running VM shows nothing. Suspended, the app resumes it in a window, so `show` suspends first (`vmrun start <vmx> gui` on the suspended VM fails with "Cannot connect to the virtual machine"). The "New features are available" dialog on resume is the hardware-version upgrade offer, and the resume waits until the user clicks OK.
 - **One run at a time per log.** Two runs writing the same `repro.log` (or a killed run's leftovers) produce confusing timestamps. Kill strays with `$W ps -c "Get-Process kiro-cli* | Stop-Process -Force"`.
 - **`kiro-chat.log` restarts per kiro process**, so a byte offset saved before a run can be past the new end, which gives an empty slice. kiro-repro.ps1 resets to 0 when the file shrank.
 - **Reading a log mid-write can yield NUL padding.** `win.sh` strips it with `perl -pe 's/\0//g'`, and deletes (not truncates) `repro.log` before a run.
@@ -122,7 +123,7 @@ $W ide shot [file.png]                 # workbench screenshot (default ~/winshar
 $W ide eval '<js>' | evalmain '<js>'   # raw JS in chat webview / workbench
 ```
 
-A VM started by `vmrun`/`win.sh up` runs **windowless** (no Fusion window), so the user sees nothing: run `$W show` before any step that needs them in the VM. First run: `ide click "Sign in"` opens the VM's browser at app.kiro.dev with `redirect_uri=localhost:3128` **inside the VM**, so the USER finishes the login there (`IDC_URL` start URL, region `IDC_REGION`). A new workspace opens in Restricted Mode; run `ps ide-trust.ps1` once so no workspace opens restricted.
+A VM started by `vmrun`/`win.sh up` runs **windowless** (no Fusion window), so the user sees nothing: run `$W show` (suspends, then resumes in a Fusion window) before any step that needs them in the VM. First run: `ide click "Sign in"` opens the VM's browser at app.kiro.dev with `redirect_uri=localhost:3128` **inside the VM**, so the USER finishes the login there (`IDC_URL` start URL, region `IDC_REGION`). A new workspace opens in Restricted Mode; run `ps ide-trust.ps1` once so no workspace opens restricted.
 
 Friction mined (Kiro IDE 1.2.4 win32-arm64, Electron 44):
 - **Chromium binds the debug port to 127.0.0.1 only** (`--remote-debugging-address` is ignored outside headless). Expose it with `netsh interface portproxy` (needs the `iphlpsvc` service running) plus a firewall rule scoped to the Mac's address on the VM network, as SYSTEM (`ide-port.ps1`; win.sh passes the Mac address). Never open it to any address: CDP is full remote code execution.
