@@ -142,8 +142,9 @@ case ${1:-status} in
         perl -e 'alarm 20; exec @ARGV' "$VMRUN" -T fusion getGuestIPAddress "$VMX" -wait | tr -d '\r ' | tee "$c"; }
       case $sub in
         install) sync_ps; arch=$(gx echo %PROCESSOR_ARCHITECTURE% | tr -d '\r ' | tr 'A-Z' 'a-z'); [ "$arch" = amd64 ] && arch=x64
-          url=$(curl -s https://kiro.dev/downloads/ | grep -oE "https://prod\.download\.desktop\.kiro\.dev/releases/stable/win32-$arch/[^\"' ]+\.exe" | head -1)
-          [ -n "$url" ] || { echo "no win32-$arch installer link on kiro.dev/downloads"; exit 1; }; echo "$url"
+          # kiro.dev/downloads builds its links in JS since 2026-11; the per-platform metadata JSON carries the installer URL.
+          url=$(curl -s "https://prod.download.desktop.kiro.dev/stable/metadata-win32-$arch-user-stable.json" | grep -oE "https://prod\.download\.desktop\.kiro\.dev/releases/stable/win32-$arch/[^\"' ]+\.exe" | head -1)
+          [ -n "$url" ] || { echo "no win32-$arch installer in metadata-win32-$arch-user-stable.json"; exit 1; }; echo "$url"
           curl -sSfLo "$STAGE/kiro-ide.exe" "$url" && push_file kiro-ide.exe && psu ide-install.ps1 ;;
         up) sync_ps; psu ide-launch.ps1 ${1:+-Workspace "$1"}; ip=$(vmip)
           mac=$(ifconfig | awk -v p="${ip%.*}." 'index($2,p)==1 && /inet /{print $2; exit}')   # the Mac's address on the VM's NAT subnet
