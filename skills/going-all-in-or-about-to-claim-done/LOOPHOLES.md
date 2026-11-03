@@ -19,7 +19,7 @@ The skill-authoring framework requires at least 3 loophole tests. Six are record
 
 **Result:** Rung 3 reached on paper, not in reality.
 
-**Closure:** Rung 3 is defined as a test that **fails without the change and passes with it** (red to green), or a clean-room re-run, or CI green for the exact revision. A test that passes on the unmodified base is not Rung-3 evidence for the change. The `pr-ab-evidence` red-to-green method is named as the canonical Rung-3 generator precisely to block the always-green test.
+**Closure:** Rung 3 is defined as a test that **fails without the change and passes with it** (red to green), or a clean-room re-run, or CI green for the exact revision. A test that passes on the unmodified base is not Rung-3 evidence for the change. The `proving-a-bugfix-pr-red-to-green` red-to-green method is named as the canonical Rung-3 generator precisely to block the always-green test.
 
 ## L3: Scope reduction: "the full distance for the part I chose"
 

@@ -50,12 +50,12 @@ What the script does:
   PR introduced gets fixed, then `Fixed in <sha>`. New code that follows an established base convention is neither: cite the convention and
   how often the base uses it, and flag it to the user as a judgment call rather than calling it pre-existing.
 - **Stacked PR refuses the merge** (`This pull request is part of a stack and must be merged using the asynchronous merge REST API`,
-  REST returns 403 too): use `merge-async` from `landing-stacked-prs`; it returned 202, then `merged` within 20s.
+  REST returns 403 too): use `merge-async` from `landing-stacked-github-prs`; it returned 202, then `merged` within 20s.
 - **Polling needs retries.** One `Post .../graphql: EOF` killed a 40-minute wait; `land.sh` now retries transient gh errors.
 - Repos with an identity rule against the merge button (it stamps a display name): don't use this script there. Fast-forward with `git push origin <branch>:<base>`.
 
 ## Related
 
-- `pr-approval-gate`: who still has to approve (CODEOWNERS gaps) before this can merge.
-- `opening-a-stacked-pr-sequence`, `landing-stacked-prs`: after a lower stacked PR lands, restack the next one, then run this.
-- `pr-activity-since-push`: which threads still await your reply.
+- `checking-what-blocks-my-github-prs-from-merging`: who still has to approve (CODEOWNERS gaps) before this can merge.
+- `opening-a-stacked-pr-sequence`, `landing-stacked-github-prs`: after a lower stacked PR lands, restack the next one, then run this.
+- `checking-my-github-prs-for-activity-since-push`: which threads still await your reply.

@@ -48,7 +48,7 @@ Every statement you make about a *result* sits on one of three rungs. The streng
 
 > In plain words: Rung 1 = "I think it works." Rung 2 = "here is the thing I made, look." Rung 3 = "I proved it works by an independent check you can re-run." You only get the confident words at Rung 3.
 
-This ladder maps onto evidence tiers you may already use: a repo's `documented` / `locally-observed` / `ci-verified` labels, the `codebase-memory` Scout / Verify / Auditor tiers, and the `pr-ab-evidence` red-to-green method (a clean Rung-3 generator).
+This ladder maps onto evidence tiers you may already use: a repo's `documented` / `locally-observed` / `ci-verified` labels, the `querying-the-codebase-memory-graph` Scout / Verify / Auditor tiers, and the `proving-a-bugfix-pr-red-to-green` red-to-green method (a clean Rung-3 generator).
 
 ### The language cap (deterministic)
 

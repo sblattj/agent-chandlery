@@ -18,25 +18,25 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 |---|---|
 | [`goal-file-autonomous-run-until-evidence`](skills/goal-file-autonomous-run-until-evidence/SKILL.md) (alias `goal-state`) | One goal file per project: objective, success criteria, a plan whose actions close only with Claim / Evidence / Verdict, a clock and turn budget, and a stop hook that keeps the agent going. |
 | [`going-all-in-or-about-to-claim-done`](skills/going-all-in-or-about-to-claim-done/SKILL.md) | Maximal-ambition delivery gated by an evidence ladder before anything is called done. |
-| [`swarm`](skills/swarm/SKILL.md) | Read-only fan-out: split a question into small units, run them on cheap agents, verify every claim. |
-| [`xx`](skills/xx/SKILL.md) | The write-capable swarm: fan out implementation units, verify, integrate. |
-| [`swarm-prompt`](skills/swarm-prompt/SKILL.md) | Write a ready-to-hand-off fan-out prompt for an orchestrator agent. |
-| [`swarm-unit-pack`](skills/swarm-unit-pack/SKILL.md) | Pack a 50+ unit fan-out into per-unit files so the workflow args stay small. |
-| [`big-tool-result`](skills/big-tool-result/SKILL.md) | Read a tool result or workflow output that overflowed the context. |
+| [`fanning-out-a-verified-read-only-swarm`](skills/fanning-out-a-verified-read-only-swarm/SKILL.md) (alias `swarm`) | Read-only fan-out: split a question into small units, run them on cheap agents, verify every claim. |
+| [`fanning-out-parallel-writers-with-verified-changes`](skills/fanning-out-parallel-writers-with-verified-changes/SKILL.md) (alias `xx`) | The write-capable swarm: fan out implementation units, verify, integrate. |
+| [`writing-an-orchestrator-fan-out-prompt`](skills/writing-an-orchestrator-fan-out-prompt/SKILL.md) (alias `swarm-prompt`) | Write a ready-to-hand-off fan-out prompt for an orchestrator agent. |
+| [`fitting-a-50-plus-task-fan-out-under-workflow-limits`](skills/fitting-a-50-plus-task-fan-out-under-workflow-limits/SKILL.md) (alias `swarm-unit-pack`) | Pack a 50+ unit fan-out into per-unit files so the workflow args stay small. |
+| [`reading-overflowed-tool-output`](skills/reading-overflowed-tool-output/SKILL.md) (alias `big-tool-result`) | Read a tool result or workflow output that overflowed the context. |
 
 **Pull requests**
 
 | Skill | What it does |
 |---|---|
-| [`pr-ab-evidence`](skills/pr-ab-evidence/SKILL.md) | Red-to-green A/B proof that a bug-fix PR fixes the bug: same test, base vs fix. |
-| [`pr-logic-trail`](skills/pr-logic-trail/SKILL.md) | A logic-only HTML walkthrough of a PR, ordered by the path a request travels. |
-| [`pr-activity-since-push`](skills/pr-activity-since-push/SKILL.md) | What happened on your open PRs since your last push, and who owns the next move. |
-| [`pr-approval-gate`](skills/pr-approval-gate/SKILL.md) | What still blocks each open PR: approvals, CODEOWNERS rules, draft, behind, conflicts. |
-| [`pr-rereview-after-reply`](skills/pr-rereview-after-reply/SKILL.md) | Re-review after the author replies: check every claimed fix is really on the head. |
+| [`proving-a-bugfix-pr-red-to-green`](skills/proving-a-bugfix-pr-red-to-green/SKILL.md) (alias `pr-ab-evidence`) | Red-to-green A/B proof that a bug-fix PR fixes the bug: same test, base vs fix. |
+| [`walking-a-pr-logic-diff-in-request-order`](skills/walking-a-pr-logic-diff-in-request-order/SKILL.md) (alias `pr-logic-trail`) | A logic-only HTML walkthrough of a PR, ordered by the path a request travels. |
+| [`checking-my-github-prs-for-activity-since-push`](skills/checking-my-github-prs-for-activity-since-push/SKILL.md) (alias `pr-activity-since-push`) | What happened on your open PRs since your last push, and who owns the next move. |
+| [`checking-what-blocks-my-github-prs-from-merging`](skills/checking-what-blocks-my-github-prs-from-merging/SKILL.md) (alias `pr-approval-gate`) | What still blocks each open PR: approvals, CODEOWNERS rules, draft, behind, conflicts. |
+| [`rereviewing-a-github-pr-after-reply`](skills/rereviewing-a-github-pr-after-reply/SKILL.md) (alias `pr-rereview-after-reply`) | Re-review after the author replies: check every claimed fix is really on the head. |
 | [`resolve-pr-threads-and-conflicts-and-merge`](skills/resolve-pr-threads-and-conflicts-and-merge/SKILL.md) | Land an approved PR: answer and resolve threads, fix conflicts, wait for CI, merge. |
 | [`opening-a-stacked-pr-sequence`](skills/opening-a-stacked-pr-sequence/SKILL.md) | Open dependent PRs in the right order with the right bases. |
-| [`landing-stacked-prs`](skills/landing-stacked-prs/SKILL.md) | Land a stack of PRs one layer at a time. |
-| [`what-the-other-agent-posted-on-github`](skills/what-the-other-agent-posted-on-github/SKILL.md) | What another agent released or commented on a repo since a time. |
+| [`landing-stacked-github-prs`](skills/landing-stacked-github-prs/SKILL.md) (alias `landing-stacked-prs`) | Land a stack of PRs one layer at a time. |
+| [`checking-what-another-agent-posted-on-github`](skills/checking-what-another-agent-posted-on-github/SKILL.md) (alias `what-the-other-agent-posted-on-github`) | What another agent released or commented on a repo since a time. |
 | [`scrub-and-open-issue`](skills/scrub-and-open-issue/SKILL.md) | Scrub internal identifiers from an issue, then file it as the repo owner, never a work account. |
 
 **Skills and context**
@@ -44,34 +44,34 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 | Skill | What it does |
 |---|---|
 | [`forge-skill-from-session-friction`](skills/forge-skill-from-session-friction/SKILL.md) | Turn what just happened in a session into a reusable skill by mining the friction. |
-| [`skill-diet-audit`](skills/skill-diet-audit/SKILL.md) | Per-skill usage vs context cost from session logs, with trim suggestions. |
-| [`skill-trigger-ab`](skills/skill-trigger-ab/SKILL.md) | A/B whether skills still fire after changing their descriptions or overrides. |
-| [`skill-hint-hook`](skills/skill-hint-hook/SKILL.md) | A prompt hook that ranks skills against the prompt and hints the best match. |
-| [`real-start-tokens`](skills/real-start-tokens/SKILL.md) | The real starting context of recent sessions, split by block. |
-| [`kiro-context-probe`](skills/kiro-context-probe/SKILL.md) | What a Kiro CLI agent actually loads into context. |
+| [`auditing-skill-context-cost-from-session-logs`](skills/auditing-skill-context-cost-from-session-logs/SKILL.md) (alias `skill-diet-audit`) | Per-skill usage vs context cost from session logs, with trim suggestions. |
+| [`ab-testing-whether-skills-still-trigger`](skills/ab-testing-whether-skills-still-trigger/SKILL.md) (alias `skill-trigger-ab`) | A/B whether skills still fire after changing their descriptions or overrides. |
+| [`building-a-prompt-to-skill-hint-hook`](skills/building-a-prompt-to-skill-hint-hook/SKILL.md) (alias `skill-hint-hook`) | A prompt hook that ranks skills against the prompt and hints the best match. |
+| [`measuring-claude-session-start-tokens`](skills/measuring-claude-session-start-tokens/SKILL.md) (alias `real-start-tokens`) | The real starting context of recent sessions, split by block. |
+| [`measuring-what-a-kiro-agent-loads-into-context`](skills/measuring-what-a-kiro-agent-loads-into-context/SKILL.md) (alias `kiro-context-probe`) | What a Kiro CLI agent actually loads into context. |
 | [`finding-claude-session-gating-logic`](skills/finding-claude-session-gating-logic/SKILL.md) | Why a Claude Code feature is refused: find the gate in the installed bundle. |
-| [`watch-claude-session`](skills/watch-claude-session/SKILL.md) | Find and follow another session's transcript. |
-| [`peer-relay`](skills/peer-relay/SKILL.md) | Relay a go-ahead to another agent session without sending a stale one. |
+| [`watching-another-claude-session-live`](skills/watching-another-claude-session-live/SKILL.md) (alias `watch-claude-session`) | Find and follow another session's transcript. |
+| [`relaying-a-go-ahead-to-another-claude-session`](skills/relaying-a-go-ahead-to-another-claude-session/SKILL.md) (alias `peer-relay`) | Relay a go-ahead to another agent session without sending a stale one. |
 
 **Code understanding and visuals**
 
 | Skill | What it does |
 |---|---|
-| [`codebase-memory`](skills/codebase-memory/SKILL.md) | Structural code questions over a code knowledge graph: callers, call chains, architecture. |
-| [`cbm-index`](skills/cbm-index/SKILL.md) | Index a repo into that graph the right way: survey, fitted ignore file, full mode. |
+| [`querying-the-codebase-memory-graph`](skills/querying-the-codebase-memory-graph/SKILL.md) (alias `codebase-memory`) | Structural code questions over a code knowledge graph: callers, call chains, architecture. |
+| [`indexing-a-repo-into-codebase-memory`](skills/indexing-a-repo-into-codebase-memory/SKILL.md) (alias `cbm-index`) | Index a repo into that graph the right way: survey, fitted ignore file, full mode. |
 | [`explain-code-concept-from-source-with-snippets-and-handdrawn-svg`](skills/explain-code-concept-from-source-with-snippets-and-handdrawn-svg/SKILL.md) | Explain a code concept grounded in real snippets, with a diagram when it helps. |
-| [`sketch-local-html-visual-explainer`](skills/sketch-local-html-visual-explainer/SKILL.md) | A styled local HTML explainer with hand-drawn SVG diagrams, linted in light and dark. |
-| [`narrated-screenshot`](skills/narrated-screenshot/SKILL.md) | A self-explaining A/B screenshot with captions and a verdict. |
-| [`narrated-ab-video`](skills/narrated-ab-video/SKILL.md) | A narrated A/B proof video from recorded browser runs. |
-| [`cdp-route-snapshots`](skills/cdp-route-snapshots/SKILL.md) | ARIA snapshots of a list of routes through a CDP browser. |
+| [`building-a-local-html-visual-explainer`](skills/building-a-local-html-visual-explainer/SKILL.md) (alias `sketch-local-html-visual-explainer`, `sketch`) | A styled local HTML explainer with hand-drawn SVG diagrams, linted in light and dark. |
+| [`making-a-narrated-ab-screenshot`](skills/making-a-narrated-ab-screenshot/SKILL.md) (alias `narrated-screenshot`) | A self-explaining A/B screenshot with captions and a verdict. |
+| [`recording-a-narrated-ab-proof-video`](skills/recording-a-narrated-ab-proof-video/SKILL.md) (alias `narrated-ab-video`) | A narrated A/B proof video from recorded browser runs. |
+| [`diffing-web-app-aria-snapshots-a-vs-b`](skills/diffing-web-app-aria-snapshots-a-vs-b/SKILL.md) (alias `cdp-route-snapshots`) | ARIA snapshots of a list of routes through a CDP browser. |
 
 **Reporting and environments**
 
 | Skill | What it does |
 |---|---|
-| [`work-overview-from-git-log`](skills/work-overview-from-git-log/SKILL.md) | A narrative overview of what one person shipped across local repos. |
-| [`evidence-dump`](skills/evidence-dump/SKILL.md) | Dump shipped-work evidence (PRs, commits) into one folder for reconciling. |
-| [`windows-vm-repro`](skills/windows-vm-repro/SKILL.md) | Reproduce Windows-only bugs from a Mac through a Parallels VM. |
+| [`summarizing-what-someone-shipped-from-git-log`](skills/summarizing-what-someone-shipped-from-git-log/SKILL.md) (alias `work-overview-from-git-log`, `work-overview`) | A narrative overview of what one person shipped across local repos. |
+| [`snapshotting-shipped-work-since-a-date`](skills/snapshotting-shipped-work-since-a-date/SKILL.md) (alias `evidence-dump`) | Dump shipped-work evidence (PRs, commits) into one folder for reconciling. |
+| [`reproducing-a-windows-bug-in-a-fusion-vm-from-a-mac`](skills/reproducing-a-windows-bug-in-a-fusion-vm-from-a-mac/SKILL.md) (alias `windows-vm-repro`) | Reproduce Windows-only bugs from a Mac through a Parallels VM. |
 
 `chandlery list` shows what this version ships. Every skill is a plain folder: it works without the CLI.
 

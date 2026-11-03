@@ -57,5 +57,5 @@ If you keep one, a page like `~/sketches/stacked-pr-squash-leak.html` helps: sto
 
 ## Related
 
-- `landing-stacked-prs`: landing a long stack into the base with CI per layer (merge-base-in, no force-push).
-- `sketch-local-html-visual-explainer`: the visual explainer above.
+- `landing-stacked-github-prs`: landing a long stack into the base with CI per layer (merge-base-in, no force-push).
+- `building-a-local-html-visual-explainer`: the visual explainer above.

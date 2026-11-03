@@ -26,5 +26,5 @@ Check the docs first (search them for the exact message, with a docs MCP tool if
 
 ## Related
 
-- `watch-claude-session`: read the transcript of the session that hit the message.
+- `watching-another-claude-session-live`: read the transcript of the session that hit the message.
 - The Claude Code docs (or a docs-search tool, if you have one): documented behavior, checked first.

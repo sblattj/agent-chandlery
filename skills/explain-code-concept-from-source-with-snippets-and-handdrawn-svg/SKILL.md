@@ -34,12 +34,12 @@ Answers "what is X and what does it look like" for a term that lives in prose (d
 - Add one only when the flow has **3+ actors, an async hop, or a branch** (e.g. signal -> park -> callback -> resume). A single struct or a config value gets no diagram.
 - Write a self-contained `.svg` file with inline styles: hand-placed boxes and arrows, a slightly wobbly hand-drawn look, no diagram library and no external CSS or fonts. Use real class names as box labels, about 10 elements at most. Save it under the repo's gitignored `tmp/` (else `~/sketches/`) and print the file path in your answer. The terminal cannot show it inline, so keep the numbered flow in the text.
 - Check for an existing diagram first: if the docs folder keeps diagram sources (d2, PlantUML, mermaid) beside the design docs, reuse their actors and order rather than inventing a different picture.
-- If the user wants a full styled HTML page instead, offer `sketch-local-html-visual-explainer`.
+- If the user wants a full styled HTML page instead, offer `building-a-local-html-visual-explainer`.
 
 ## Why it's built this way (friction mined)
 
 - **Tool behavior, not repo code (git, GitHub, a CLI)?** There is no file:line to cite, so prove it in a `mktemp -d` scratch repo and quote the real output. That repro caught a wrong claim (GitHub rebase-merge does leak the lower PR's diff into a stacked PR; only a merge commit doesn't). Bound every git call with `</dev/null` and `perl -e 'alarm 30; exec @ARGV'`; an unbounded batch hung 120s.
-- **"styled html???" right after a text answer** means they wanted `sketch-local-html-visual-explainer`. Offer it in the closing question for any flow with 3+ steps.
+- **"styled html???" right after a text answer** means they wanted `building-a-local-html-visual-explainer`. Offer it in the closing question for any flow with 3+ steps.
 - **Prose name != code name.** A doc's "retry budget" may never appear in the code: it's `maxAttempts` in `RetryPolicy`, and the Javadoc says "attempt budget". The script pulls backticked identifiers from doc lines that mention the term, then finds where those are declared. It also falls back to the head noun ("budget") in comments.
 - **Code wins over docs.** If the docs folder declares code as the authority (the script flags an `AUTHORITY.md`), follow it. Proposal folders often hold many duplicate doc versions (min, v2..v4, slim). The script skips `_superseded/` and `~$` Office lock files. Quote the code snippet, not the doc's paraphrase.
 - **zsh eats unquoted globs.** `grep --include=*.java` failed with "no matches found". The script uses quoted `rg --glob`s.
@@ -53,6 +53,6 @@ Answers "what is X and what does it look like" for a term that lives in prose (d
 
 ## Related
 
-- `codebase-memory`: graph lookups (callers/callees) when the flow needs tracing beyond one call site.
-- `narrated-screenshot`: turn a live demo of the concept into a captioned image.
-- `sketch-local-html-visual-explainer`: when they want a styled local HTML visual (diagrams + comparison table) instead of a text explanation.
+- `querying-the-codebase-memory-graph`: graph lookups (callers/callees) when the flow needs tracing beyond one call site.
+- `making-a-narrated-ab-screenshot`: turn a live demo of the concept into a captioned image.
+- `building-a-local-html-visual-explainer`: when they want a styled local HTML visual (diagrams + comparison table) instead of a text explanation.

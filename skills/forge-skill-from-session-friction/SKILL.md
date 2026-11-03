@@ -30,7 +30,7 @@ turns, the non-obvious flags, the gotchas, and the decisions the user was forced
    every session, so a new skill is a standing token cost until it earns its place. If the client
    supports it, **start new skills on probation**: in Claude Code, add `"<name>": "name-only"` under
    `skillOverrides` in `settings.json` (back it up first). Name-only still fires (an A/B showed the
-   same recall) but costs no description tokens. `skill-diet-audit` suggests promoting it to `on`
+   same recall) but costs no description tokens. `auditing-skill-context-cost-from-session-logs` suggests promoting it to `on`
    after more than 3 uses. Skip this when the user will only ever type `/name` (use
    `user-invocable-only`) or asks for it fully listed. Clients without such a setting: keep the
    description tight instead.
@@ -127,7 +127,7 @@ it defaults to read-only.
 
 ## Related
 
-- `pr-activity-since-push`, `pr-ab-evidence`, `swarm` were all forged/hardened with this process
+- `checking-my-github-prs-for-activity-since-push`, `proving-a-bugfix-pr-red-to-green`, `fanning-out-a-verified-read-only-swarm` were all forged/hardened with this process
   and are good worked examples of the structure.
-- `skill-diet-audit`: the 600-char cap check and the probation-to-`on` promotion.
-- `skill-trigger-ab`: measure whether a trimmed or name-only description still fires.
+- `auditing-skill-context-cost-from-session-logs`: the 600-char cap check and the probation-to-`on` promotion.
+- `ab-testing-whether-skills-still-trigger`: measure whether a trimmed or name-only description still fires.

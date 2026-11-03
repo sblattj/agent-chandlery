@@ -61,3 +61,32 @@ test("old skill names still work as --only aliases and resolve to the new folder
   assert.equal(a[0].dst, b[0].dst);
   assert.throws(() => skills.install({ project, only: ["no-such-skill"], dryRun: true }), /no such skill/);
 });
+
+test("every alias points at a real skill folder and never shadows one", () => {
+  const names = new Set(skills.list().map((s) => s.name));
+  for (const [old, target] of Object.entries(skills.ALIASES)) {
+    assert.ok(names.has(target), `alias ${old} -> ${target}: no such skill folder`);
+    assert.ok(!names.has(old), `alias ${old} shadows a real skill folder`);
+  }
+});
+
+test("renamed skills resolve from their old short names, including chained renames", () => {
+  const project = tmp();
+  const cases = {
+    "swarm": "fanning-out-a-verified-read-only-swarm",
+    "xx": "fanning-out-parallel-writers-with-verified-changes",
+    "pr-ab-evidence": "proving-a-bugfix-pr-red-to-green",
+    "sketch": "building-a-local-html-visual-explainer",
+    "sketch-local-html-visual-explainer": "building-a-local-html-visual-explainer",
+    "work-overview": "summarizing-what-someone-shipped-from-git-log",
+    "work-overview-from-git-log": "summarizing-what-someone-shipped-from-git-log",
+  };
+  for (const [old, target] of Object.entries(cases)) {
+    const a = skills.install({ project, only: [old], dryRun: true });
+    const b = skills.install({ project, only: [target], dryRun: true });
+    assert.equal(a[0].skill, target, old);
+    assert.equal(a[0].dst, b[0].dst, old);
+  }
+  const ex = skills.install({ project, exclude: ["swarm"], dryRun: true });
+  assert.ok(!ex.some((r) => r.skill === "fanning-out-a-verified-read-only-swarm"), "--exclude takes old names too");
+});

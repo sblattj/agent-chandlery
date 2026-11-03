@@ -5,4 +5,4 @@ node_modules/
 __pycache__/
 *.pyc
 # built on first use by narr.sh crop
-skills/narrated-screenshot/crop
+skills/making-a-narrated-ab-screenshot/crop
