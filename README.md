@@ -1,6 +1,6 @@
 # agent-chandlery
 
-**36 agent skills and a goal-state loop for Claude Code, Kiro and Codex.** Fan-out with verification, evidence-first PRs, stacked PRs, skill hygiene, and a goal file that keeps an agent working until the job is done with proof.
+**37 agent skills and a goal-state loop for Claude Code, Kiro and Codex.** Fan-out with verification, evidence-first PRs, stacked PRs, skill hygiene, and a goal file that keeps an agent working until the job is done with proof.
 
 A chandlery is the shop that outfits a ship before it sails. This one outfits coding agents: plain `SKILL.md` folders any skills-aware client can load, plus a zero-dependency CLI to install them and run a goal loop.
 
@@ -71,6 +71,7 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 |---|---|
 | [`summarizing-what-someone-shipped-from-git-log`](skills/summarizing-what-someone-shipped-from-git-log/SKILL.md) (alias `work-overview-from-git-log`, `work-overview`) | A narrative overview of what one person shipped across local repos. |
 | [`snapshotting-shipped-work-since-a-date`](skills/snapshotting-shipped-work-since-a-date/SKILL.md) (alias `evidence-dump`) | Dump shipped-work evidence (PRs, commits) into one folder for reconciling. |
+| [`diagnosing-macos-disk-cpu-and-memory-usage`](skills/diagnosing-macos-disk-cpu-and-memory-usage/SKILL.md) | Read-only macOS disk, CPU and memory diagnosis with bounded scans, retained partial results and APFS allocation caveats. |
 | [`reproducing-a-windows-bug-in-a-fusion-vm-from-a-mac`](skills/reproducing-a-windows-bug-in-a-fusion-vm-from-a-mac/SKILL.md) (alias `windows-vm-repro`) | Reproduce Windows-only bugs from a Mac through a Parallels VM. |
 
 `chandlery list` shows what this version ships. Every skill is a plain folder: it works without the CLI.
