@@ -5,7 +5,7 @@ description: "A/B whether skills still fire after changing skillOverrides or des
 
 ## More triggers
 
-skill-trigger-ab (old name)
+skill-trigger-ab (old name), synth only for these skills, mined positives too thin, rename arm keeps each skill's state.
 
 # ab-testing-whether-skills-still-trigger
 
@@ -44,8 +44,11 @@ start tokens 18.8k vs 16.9k. About 20 minutes per round at 8 jobs.
 - **Never name a hidden skill as the alternative in a description.** "use standup-to-tracker instead" made Claude call the hidden skill, which fails with `Skill standup-to-tracker is disabled for model invocation in skillOverrides settings` (a wasted turn). Point at the user command instead: "is the user command /standup-to-tracker (suggest it, do not call it)". `invoked` in results counts these failed attempts too.
 - **Check a "wrong pick" against the arm before fixing a description**: if the expected skill is hidden in that arm, report.py already excluded it; an ad-hoc breakdown won't.
 
-- **Names are the whole signal for name-only skills.** Test renames with `make_rename_arms.py --skills-dir D --base ARM.json --rename RENAME.json --name NAME --out ARMS [--prefix X]`: renamed copies go in a per-arm cwd as project skills, the originals are set to `off`, and run.py maps invoked names back (`arms/ARM.meta.json`). In one round, trigger-shaped names took 7 opaque name-only skills from 49% to 90% recall on fresh prompts (McNemar p<0.0001) with other skills flat. A `use-this-skill-when-` prefix gained nothing over the same names without it and cost ~300 start tokens. Rename only opaque names (`boil-the-ocean` 0/15 -> 10/15). Clear ones lost ground when renamed (`pr-preflight-review` 6 -> 3).
+- **Names are the whole signal for name-only skills.** Test renames with `make_rename_arms.py --skills-dir D --base ARM.json --rename RENAME.json --name NAME --out ARMS [--prefix X]`: renamed copies go in a per-arm cwd as project skills, the originals are set to `off`, and run.py maps invoked names back (`arms/ARM.meta.json`). In one round, trigger-shaped names took 7 opaque name-only skills from 49% to 90% recall on fresh prompts (McNemar p<0.0001) with other skills flat. A `use-this-skill-when-` prefix gained nothing over the same names without it and cost ~300 start tokens. Rename only opaque names (`boil-the-ocean` 0/15 -> 10/15). Clear ones lost ground when renamed (`preflighting-teammates-prs-with-prxref-and-rules` 6 -> 3).
 - **Prompts must not come from the names.** Have a writer that never sees the new names write prompts from the SKILL.md. Prompts that name a skill outright ("update the release-notes skill") miss after a rename; that's a real cost, because typed old names stop working.
+- **`synth.py` covers every under-covered skill in `--skills-dir`**, not just the ones under test (it started ~130 generations before it was stopped). Point it at a temp dir that holds symlinks to only the skills under test. A per-skill generation that hits the 120s deadline (`generation for X failed: deadline of 120s exceeded`) can be rerun alone the same way.
+- **Mined positives are usually too thin for a targeted test.** For 6 skills, 90 mined prompts filtered down to 9 usable positives (most were replies like "yes do both"). Plan on synth for 3 to 4 prompts per skill and report real and synthetic recall separately (`report.py --synthetic include`).
+- **`make_rename_arms.py --state` sets one state for every new name.** To keep each renamed skill at its current state (some `on`, some `name-only`), copy the old name's value onto the new key in `ARM.json` after building, and assert the old key is `off`.
 
 - **Hiding a skill doesn't send Claude to the next-best visible one.** When a prompt's `accept` list mixes hidden and
   visible skills, the hidden arm often fires nothing at all. Score the split separately: in one round a 27-item hide list

@@ -37,4 +37,4 @@ S-T: Busy CPU, full RAM and large folders are different measurements. Identify t
 
 ## Related
 
-- `slow-shell-prompt`: investigate Git, fsmonitor and shell prompt latency after checking host resource pressure.
+- `fixing-a-slow-git-or-zsh-shell-prompt`: investigate Git, fsmonitor and shell prompt latency after checking host resource pressure.

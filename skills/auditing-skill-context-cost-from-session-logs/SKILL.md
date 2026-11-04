@@ -5,7 +5,7 @@ description: "Read-only audit of Claude Code skill context cost: per-skill usage
 
 ## More triggers
 
-skill-diet-audit (old name)
+skill-diet-audit (old name), run context-diet audit, monthly skill diet report empty or failing.
 
 # auditing-skill-context-cost-from-session-logs
 
@@ -39,6 +39,9 @@ Then:
 - **The usage CSV mixes in built-in commands** (`compact`, `exit`, `model`, `effort`, `copy`) and suggests them `user-invocable-only`. Ignore those rows.
 - **Overrides live in whichever repo owns the settings symlink.** When the symlink moved from one repo to another, 6 of 8 changes made the day before silently stopped applying (95 entries became 47). Re-check the `readlink` before trusting an earlier diet.
 - **Name-only skills don't count toward the cap**: their description isn't loaded.
+- **A description cap hit on a skill only the user should start means hide it, not trim it.** Set it `user-invocable-only`: hidden skills are skipped by `skill-lint.py`, so the long description costs nothing and still shows in the `/` menu.
+- **`skill-lint.py` needs explicit paths** (`error: the following arguments are required: paths`, exit 2): pass the `SKILL.md` files, e.g. `skill-lint.py ~/.claude/skills/*/SKILL.md --settings ~/.claude/settings.json`.
+- **A scheduled diet report can fail quietly after a skill rename.** A monthly script still pointed at the old skill's `scripts/` dir and wrote `audit failed` for weeks. When renaming or moving these scripts, grep `~/.scripts` and launchd jobs for the old path.
 - **Built-in and plugin skills are in the listing too** (dataviz 1,447 chars, claude-api 1,082, update-config 707, plus /loop, /schedule, /init...). They aren't under `~/.claude/skills`, so the usage and audit scripts never see them, yet `skillOverrides` works on them. Moving 11 rarely used built-ins to `name-only` took the real listing 17.4k to 12.3k chars and the start 34.7k to 32.9k tokens. Spot-check: claude-api 2/2, update-config 2/2, dataviz 4/6 vs 4/4 fully listed. Get the full list from the `skill_listing` attachment in a fresh session JSONL; count usage with `rg -c '"skill":"<name>"'`.
 - **Report real session starts, not `-p`.** A headless baseline ran about 21k tokens under a real interactive start.
 - **Pointer targets stay listed.** If CLAUDE.md says "load the X skill", X must be at least `name-only`; `audit.py` keeps an explicit state for typed-only skills instead of suggesting hidden.
