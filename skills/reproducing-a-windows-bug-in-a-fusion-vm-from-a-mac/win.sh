@@ -41,7 +41,9 @@ running() { vr list | grep -qxF "$VMX"; }
 # The arm64 VMware Tools has no shared-folder driver, so $SHARE is mirrored into the guest at C:\winshare by copy, and
 # every call maps Y: to that mirror (subst). Paths in the ps scripts stay Y:\winrepro, Y:\fw-src.
 G='C:\winshare'; GXU=$GU
-gop() { perl -e 'alarm 300; exec @ARGV' "$VMRUN" -T fusion -gu "$GXU" -gp "$GP" "$@"; }   # one bounded guest op
+GOP_TIMEOUT=${GOP_TIMEOUT:-300}   # seconds per guest op; raise it for long installs (GOP_TIMEOUT=1200 win.sh ps ...)
+case "$GOP_TIMEOUT" in ''|*[!0-9]*) echo "GOP_TIMEOUT must be whole seconds, got '$GOP_TIMEOUT'" >&2; exit 2 ;; esac
+gop() { perl -e 'alarm shift; exec @ARGV' "$GOP_TIMEOUT" "$VMRUN" -T fusion -gu "$GXU" -gp "$GP" "$@"; }   # one bounded guest op
 # push <dir under $SHARE> [clean]: tar on the Mac, unpack into the mirror (installers excluded: push_file sends those)
 push() { local d=$1 t rc; t=$(mktemp -t winpush)
   COPYFILE_DISABLE=1 tar czf "$t" -C "$SHARE" --exclude "$d/out" --exclude '*.msi' --exclude '*.exe' "$d" || { rm -f "$t"; return 1; }

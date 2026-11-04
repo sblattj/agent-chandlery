@@ -30,6 +30,7 @@ $W ps -c "Get-Process kiro*"   # any ad-hoc PowerShell, output streamed back
 Inputs (nothing is baked in):
 - VM: `WIN_VMX` or `WIN_VM`, else the first VM under `~/Virtual Machines.localized`. Guest user `WIN_GU` (default `winrepro`, password in the keychain, service `reproducing-a-windows-bug-in-a-fusion-vm-from-a-mac`; `create` makes it). Staging: `WIN_SHARE` (default `~/winshare`, copied into the guest at `C:\winshare`, `Y:` in the VM). Elevated user: `WIN_SU` (default the built-in `Administrator`, same password).
 - Framework under test: `WIN_SRC`, else the git repo at cwd (copied to `Y:\fw-src`). A published build: `WIN_PKG_SPEC` / `WIN_NPM_REGISTRY` (see below).
+- Guest-op bound: `GOP_TIMEOUT` (seconds per vmrun guest op, default 300). Raise it for long installs, e.g. `GOP_TIMEOUT=1200 $W ps -c ...`; a non-number stops with exit 2.
 - Repro settings (written to `Y:\winrepro\repro.json` on every sync): `WIN_AGENT` (the kiro agent to run with `--agent`; empty = Kiro's default agent), `WIN_INIT_CMD` (installs your framework's `.kiro/` into each fresh probe repo, `{src}` = the framework copy, e.g. `node "{src}\bin\cli.js" init --kiro --force`; empty = copy `<src>\.kiro`), `WIN_GATE_MATCH` (regex that finds the gate hook's command, default `gate|guard`).
 - Login: `IDC_URL` / `IDC_REGION` (your IAM Identity Center start URL and region), needed by `login`.
 If the user's agent instructions file (AGENTS.md / CLAUDE.md) names defaults for these, use them; otherwise ask.
