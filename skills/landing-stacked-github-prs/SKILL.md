@@ -92,6 +92,13 @@ When the layers only build together (the bottom changes a version the upper laye
 - `gh pr merge --match-head-commit` needs the full 40-char SHA; a short one fails with `Could not coerce value "<sha>" to GitObjectID`.
 - The folded PR's approvals were given before the fold. Say so; the upper layers were approved on their own PRs.
 
+## Did a stack someone else merged reach trunk?
+
+When a reviewer merges each layer into its parent branch and only the bottom PR squashes into trunk, GitHub shows every upper PR as MERGED with base = its parent branch, not trunk.
+- `git merge-base --is-ancestor <layer merge commit> origin/<trunk>` says NO for every layer: the bottom squash rewrote them. Not proof they're missing.
+- Reverse-applying `gh pr diff <n>` against trunk (`git apply --cached --check -R` on a temp index) also fails once later PRs touch nearby lines: 4 of 4 layers false-flagged "not on trunk" in one check.
+- What works: walk the chain (`gh pr list --head <base> --state all` until the base is trunk), confirm the bottom PR merged after the top ones, then grep the specific added lines on `origin/<trunk>` per file (`git show origin/<trunk>:<path> | grep -c '<added line>'`).
+
 ## Conflict resolution
 
 - **Workflow files edited by multiple layers** (reusable build workflows, a CI orchestrator workflow):
