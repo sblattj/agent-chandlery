@@ -54,6 +54,7 @@ Then:
   so the "my last review on" SHA may not be the one you reviewed. Trust `submitted_at` and the range-diff.
 - Approvals go stale after a push: `reviewDecision` flips to `REVIEW_REQUIRED`. Re-approve on the new head; other
   approvers may need to as well (the rule may want N approvals of the latest push, and it is not readable without admin).
+- **Green CI and approvals can still leave the PR unmergeable.** A head with only a comment-tweak commit came back `mergeable: CONFLICTING`. Name the conflicting files without checking anything out: `git merge-tree --write-tree --name-only origin/<base> <head-ref>` (git 2.38+; line 1 is the tree id, then the files, then `CONFLICT (modify/delete): ...` lines). A modify/delete conflict means the PR deletes a file that base kept editing (`git log --oneline origin/<base> -- <file>` shows which PRs). Put it in the risk table as a Medium with an ask to carry those edits over, not request changes.
 - **Nothing new is a valid answer.** `old->head: identical` with no activity and my approval on head means there's nothing to re-review. If `reviewDecision` is still `REVIEW_REQUIRED`, other reviewers are missing (`gh pr view N --json reviews,reviewRequests`). Don't nudge them on the PR (re-requests reset standing approvals); offer the user a chat-message draft instead.
 
 ## Related
