@@ -16,7 +16,7 @@ Built for macOS on Apple Silicon (`say`, the Playwright cache under `~/Library/C
 ## Do this
 
 ```bash
-S=${SKILL_DIR:-~/.claude/skills/recording-a-narrated-ab-proof-video}
+S=${CLAUDE_SKILL_DIR:-${SKILL_DIR:-~/.claude/skills/recording-a-narrated-ab-proof-video}}
 $S/preflight.sh /tmp/vid                                  # chromium, playwright ffmpeg, ffmpeg, say voice
 bun $S/record.ts a.json raw/a-run                         # one scenario per side (copy examples/scenario.json)
 bun $S/record.ts b.json raw/b-run
