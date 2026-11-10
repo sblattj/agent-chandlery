@@ -15,7 +15,7 @@ Works on any GitHub repo: the PR URL carries `owner/repo`.
 ## Do this
 
 ```bash
-REPO_DIR=<local clone> ${SKILL_DIR:-~/.claude/skills/rereviewing-a-github-pr-after-reply}/rereview-status.sh <pr-url> [my-login]
+REPO_DIR=<local clone> ${CLAUDE_SKILL_DIR:-${SKILL_DIR:-~/.claude/skills/rereviewing-a-github-pr-after-reply}}/rereview-status.sh <pr-url> [my-login]
 BACK=2 ...   # measure from my 2nd-to-last review (e.g. after I already posted a newer one)
 ```
 
@@ -24,17 +24,8 @@ force-push by others since then, each commit SHA named in their replies marked `
 `git range-diff` of old vs new head when `REPO_DIR` is set. `my-login` defaults to the account `gh api user` returns.
 
 Then:
-1. **Any `NOT ON HEAD`** or a range-diff with only `=` rows while they say "fixed": the fix is not on the PR. Say so
-   in the review with the compare status and one concrete at-head proof (a line that still has the old code).
-   Don't name who dropped it: the last force-push actor is often not the culprit (see friction below).
-2. **Each factual claim in a reply** ("the mapper ignores unknown fields", "OFF is unchanged"): verify in code at the
-   head (`git show "${H}:path"`, `git grep <pat> "${H}"`), not in the reply. Accept or reject per claim. When the
-   reply argues about a feature flag or rollout, rebuild the base / flag-off / flag-on behavior from the diff itself.
-3. **Policy pushback** (e.g. "default ON on purpose, toggles are kill switches"): check the repo has the convention
-   it cites (another flag that works that way). If it does, accept it, note why, and move on.
-4. **Re-run your automated review** (if you use one) on the new head, in a new run dir keyed by head, and verify new findings.
-5. **Post one new review** at the new head that supersedes the old state (APPROVE clears my CHANGES_REQUESTED).
-   Body: verdict, per-ask resolution, anything still missing before merge. Confirm with `gh pr view N --json reviews`.
+1. **Any `NOT ON HEAD`**, or a range-diff with only `=` rows while they say "fixed": the fix is not on the PR. Say so with the compare status and one at-head proof (a line that still has the old code), without naming who dropped it (see below).
+2. Verify each factual claim in their replies in code at the head (`git show "${H}:path"`), then post one new review at the new head that supersedes the old state (APPROVE clears my CHANGES_REQUESTED).
 
 ## Why it's built this way (friction mined)
 
