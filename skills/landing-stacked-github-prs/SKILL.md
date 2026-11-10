@@ -121,4 +121,4 @@ When a reviewer merges each layer into its parent branch and only the bottom PR 
 
 - `opening-a-stacked-pr-sequence`: opening the stack (bases, merge order) and the per-merge-type restack fix (`stack.sh restack`).
 - `checking-what-my-github-prs-need-and-from-whom`: which code owners each layer still needs.
-- `resolve-pr-threads-and-conflicts-and-merge`: landing one layer once its threads and approvals are done.
+- `landing-an-approved-github-pr-blocked-by-threads`: landing one layer once its threads and approvals are done.

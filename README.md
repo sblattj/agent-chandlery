@@ -32,7 +32,7 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 | [`walking-a-pr-logic-diff-in-request-order`](skills/walking-a-pr-logic-diff-in-request-order/SKILL.md) (alias `pr-logic-trail`) | A logic-only HTML walkthrough of a PR, ordered by the path a request travels. |
 | [`checking-what-my-github-prs-need-and-from-whom`](skills/checking-what-my-github-prs-need-and-from-whom/SKILL.md) (aliases `pr-activity-since-push`, `pr-approval-gate`) | What each open PR needs and from whom: activity since your last push, CI, conflicts, CODEOWNERS gaps, draft, behind. |
 | [`rereviewing-a-github-pr-after-reply`](skills/rereviewing-a-github-pr-after-reply/SKILL.md) (alias `pr-rereview-after-reply`) | Re-review after the author replies: check every claimed fix is really on the head. |
-| [`resolve-pr-threads-and-conflicts-and-merge`](skills/resolve-pr-threads-and-conflicts-and-merge/SKILL.md) | Land an approved PR: answer and resolve threads, fix conflicts, wait for CI, merge. |
+| [`landing-an-approved-github-pr-blocked-by-threads`](skills/landing-an-approved-github-pr-blocked-by-threads/SKILL.md) | Land an approved PR that's still BLOCKED: answer and resolve threads, fix conflicts, wait for CI, merge (never with 0 approvals). |
 | [`opening-a-stacked-pr-sequence`](skills/opening-a-stacked-pr-sequence/SKILL.md) | Open dependent PRs in the right order with the right bases. |
 | [`landing-stacked-github-prs`](skills/landing-stacked-github-prs/SKILL.md) (alias `landing-stacked-prs`) | Land a stack of PRs one layer at a time. |
 | [`scrub-and-open-issue`](skills/scrub-and-open-issue/SKILL.md) | Scrub internal identifiers from an issue, then file it as the repo owner, never a work account. |

@@ -73,4 +73,4 @@ gh api repos/<owner>/<repo>/pulls/<N>/comments --paginate --slurp | jq '[.[][] |
 ## Related
 
 - `rereviewing-a-github-pr-after-reply`: the reviewer side (did the author's reply or push fix what I asked?).
-- `landing-stacked-github-prs`, `resolve-pr-threads-and-conflicts-and-merge`: once the gate is clear.
+- `landing-stacked-github-prs`, `landing-an-approved-github-pr-blocked-by-threads`: once the gate is clear.

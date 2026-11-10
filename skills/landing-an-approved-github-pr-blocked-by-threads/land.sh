@@ -3,8 +3,9 @@
 # Usage: land.sh <pr> [-R owner/repo] [--replies replies.json] [--resolve-unreplied] [--wait SECS=600] [--dry-run]
 #   replies.json: [{"cid":"<first comment databaseId of the thread>","body":"markdown"}]
 # Exit: 0 merged (or armed with --wait 0) | 2 unresolved threads with no reply | 3 conflicts | 4 not merged in time | 5 bad state
+#       6 no approval yet (never merges or arms auto-merge on green CI alone)
 set -euo pipefail
-PR=${1:-}; [[ $PR == <-> ]] || { sed -n "2,5p" $0; exit 5; }; shift; R=""; REPLIES=""; FORCE=0; WAIT=600; DRY=0
+PR=${1:-}; [[ $PR == <-> ]] || { sed -n "2,6p" $0; exit 5; }; shift; R=""; REPLIES=""; FORCE=0; WAIT=600; DRY=0
 while (( $# )); do case $1 in
   -R) R=$2; shift 2;; --replies) REPLIES=$2; shift 2;; --resolve-unreplied) FORCE=1; shift;;
   --wait) WAIT=$2; shift 2;; --dry-run) DRY=1; shift;; *) print -u2 "unknown arg $1"; exit 5;; esac; done
@@ -16,7 +17,7 @@ run() { if (( DRY )); then say "DRY: $*"; else "$@"; fi; }
 me=$(gh api user --jq .login)
 
 retry() { local i; for i in 1 2 3 4 5; do "$@" && return 0; say "retry $i: $1 failed (transient API error?)"; sleep $((i*5)); done; return 1; }
-pr() { retry gh pr view $PR $GR --json state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefOid,baseRefName,autoMergeRequest; }
+pr() { retry gh pr view $PR $GR --json state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefOid,baseRefName,autoMergeRequest,author; }
 s=$(pr); say "PR $R#$PR as $me: $(jq -c '{state,isDraft,mergeable,mergeStateStatus,reviewDecision}' <<<$s)"
 [[ $(jq -r .state <<<$s) == MERGED ]] && { say "already merged"; exit 0; }
 [[ $(jq -r .state <<<$s) == OPEN ]] || { say "not open"; exit 5; }
@@ -44,7 +45,13 @@ for row in ${(f)"$(jq -c '.[]' <<<$T)"}; do
 done
 (( ${#missing} )) && { say "NO REPLY (draft one per thread, pass --replies): ${(j: :)missing}"; exit 2; }
 
-# 3. merge: direct, else auto-merge with the repo's allowed method
+# 3. approval gate: each person's latest APPROVED / CHANGES_REQUESTED from the full REST list (not latestReviews), author excluded
+author=$(jq -r .author.login <<<$s)
+appr=$(retry gh api repos/$R/pulls/$PR/reviews --paginate --slurp | jq -r --arg a "$author" '[.[][] | select(.user and .submitted_at and .user.login != $a and (.state == "APPROVED" or .state == "CHANGES_REQUESTED"))] | sort_by(.submitted_at) | group_by(.user.login) | map(last | select(.state == "APPROVED") | .user.login) | join(" ")')
+[[ -n $appr ]] || { say "NO APPROVAL: refusing to merge or arm auto-merge on green CI alone; get 1+ approval, then rerun"; exit 6; }
+say "approved by: $appr"
+
+# 4. merge: direct, else auto-merge with the repo's allowed method
 m=$(gh api repos/$R --jq 'if .allow_squash_merge then "squash" elif .allow_merge_commit then "merge" else "rebase" end')
 (( DRY )) && { say "DRY: gh pr merge --$m (then --auto)"; exit 0; }
 if gh pr merge $PR $GR --$m 2>>$LOG; then say "merged ($m)"; else
