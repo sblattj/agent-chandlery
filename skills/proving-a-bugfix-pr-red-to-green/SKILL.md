@@ -30,8 +30,8 @@ Once the CEV is posted (or the A/B dropped), `git worktree remove --force <path>
 
 ## UI screenshots and attaching images
 
-- UI-visible fixes: before/after images from a throwaway Vite + Playwright harness, see [screenshots.md](screenshots.md). Backend-only PRs get no screenshot; say so.
-- `gh` can't attach images, and raw repo URLs don't render on a private repo. Upload through a logged-in browser's comment box (a CDP driver's `upload_file`), read the `user-attachments` URLs back, post or PATCH the CEV comment with `gh`, and check each image's `naturalWidth` is above 0 ([screenshots.md](screenshots.md)). Never put internal UI in a public gist without asking.
+- **UI before/after:** mount just the changed component in a throwaway Vite page and screenshot it with Playwright, once with the fix and once with the production code reverted (same rule as the A leg). Import the app's global CSS (`grep -n "\.css" src/main.tsx`) or badges render unstyled. Copy the `VITE_*` vars from the `dev` script or it fails at import. If the component fetches a bearer token first, a `window.fetch` stub never gets reached: seed react-query with `setQueryData(<exact query key>, DATA)`. Backend-only PRs get no screenshot; say so.
+- **Attaching images:** `gh` can't attach them, and raw repo URLs don't render on a private repo. In a logged-in browser over CDP, type the caption into the PR's main comment box and `upload_file` the PNG into that box's own file input (not an inline review-reply form's). Poll the textarea until it has a `user-attachments` URL and no "Uploading", then submit. Check each image's `naturalWidth` is above 0. Never put internal UI in a public gist without asking.
 
 ## Not proven is a valid verdict
 

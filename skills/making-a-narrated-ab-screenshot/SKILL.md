@@ -14,25 +14,9 @@ B column (each with a yellow "Look for" caption), green verdict, and a one-line 
 
 ## Do this
 
-Any CDP browser driver works (the steps below use tool names from a typical CDP MCP server:
-`evaluate_script`, `take_screenshot`, `new_page`, `navigate_page`, `select_page`).
-
-1. Raw captures, per side. Declutter first with `evaluate_script` (in Swagger UI: hide the
-   `Response headers` / `Request duration` h5 plus its next sibling, and `.download-contents`), then
-   `take_screenshot {target, selector, savePath}` for each element, e.g. Swagger
-   `.live-responses-table` and `#operations-<Tag>-<op> textarea.body-param__text`.
-2. Scaffold and fill: `${SKILL_DIR:-~/.claude/skills/making-a-narrated-ab-screenshot}/narr.sh new <workdir> <name>`, then edit
-   `<name>.html` (replace every `{{...}}`; images are relative to workdir).
-3. Render: `new_page file://<workdir>/<name>.html` (label it `narr`, reuse it with `navigate_page` +
-   reload), then read the height: `evaluate_script (() => document.getElementById('shot').offsetHeight)()`.
-4. `take_screenshot {target: label:narr, selector: '#shot', savePath: <workdir>/<name>-el.png}`.
-5. If glitched (content in the top-left quarter), crop:
-   `narr.sh crop <workdir>/<name>-el.png <out>/<final>.png 1800 <height>`. Then read the result to
-   eyeball it before showing the user, and `open` it in Preview.
-
-Example fill for a demo todo app: header "TODO-12: Creating a todo with an empty title is refused",
-step 1 "POST /todos with `{\"title\": \"\"}` on both sides", A caption "201, OK I made it: look for
-`\"id\": 7`", B caption "400, I refused your request: look for `title must not be empty`".
+1. Capture each side's raw elements over CDP (`take_screenshot {selector, savePath}`), decluttered first with `evaluate_script` (Swagger UI: hide the `Response headers` / `Request duration` h5 plus its next sibling and `.download-contents`; capture `.live-responses-table` and `#operations-<Tag>-<op> textarea.body-param__text`).
+2. `N=${CLAUDE_SKILL_DIR:-${SKILL_DIR:-~/.claude/skills/making-a-narrated-ab-screenshot}}/narr.sh; $N new <workdir> <name>`, then fill every `{{...}}` in `<name>.html` (images are relative to workdir).
+3. Open it in a tab labeled `narr`, read `document.getElementById('shot').offsetHeight` and `devicePixelRatio`, and capture selector `#shot`. Crop with `$N crop <in.png> <out.png> 1800 <height>` only in the glitch case below. Read the PNG before showing it, then `open` it in Preview.
 
 ## Why it's built this way (friction mined)
 
