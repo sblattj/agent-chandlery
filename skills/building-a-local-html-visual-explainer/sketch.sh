@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # sketch.sh: path / lint / screenshot / open for local HTML visual explainers.
-#   sketch.sh path <slug>            print where to save (repo tmp/ if gitignored, else ~/sketches)
+#   sketch.sh path <slug> [topic]    print where to save: $SKETCH_DIR/<topic>/ if set, else repo tmp/ if gitignored, else ~/sketches/
 #   sketch.sh check <file.html>      lint + headless screenshot (PNG path printed) + open
 #   env: SKETCH_NO_OPEN=1 skip open, SKETCH_NO_SHOT=1 skip screenshot, SKETCH_WIDTH (1280), SKETCH_HEIGHT (4200),
-#        SKETCH_CHROME=<browser binary> (default: Google Chrome on macOS), SKETCH_BANNED_RE=<regex> optional style lint
+#        SKETCH_CHROME=<browser binary> (default: the first of Chromium, Vivaldi, Brave, Edge; never Google Chrome unless set here),
+#        SKETCH_DIR=<dir> (pages go to <dir>/<topic>/), SKETCH_BANNED_RE=<regex> optional style lint
 set -euo pipefail
 cmd="${1:-}"; arg="${2:-}"
-[[ -z "$cmd" || -z "$arg" ]] && { sed -n '2,6p' "$0"; exit 2; }
+[[ -z "$cmd" || -z "$arg" ]] && { sed -n '2,7p' "$0"; exit 2; }
 
 case "$cmd" in
 path)
+  topic="${3:-}"
+  if [[ -n "${SKETCH_DIR:-}" ]]; then
+    d="${SKETCH_DIR/#\~/$HOME}${topic:+/$topic}"; mkdir -p "$d"; echo "$d/$arg.html"; exit 0
+  fi
   root=$(git rev-parse --show-toplevel 2>/dev/null || true)
   if [[ -n "$root" ]] && git -C "$root" check-ignore -q "tmp/$arg.html"; then
     mkdir -p "$root/tmp"; echo "$root/tmp/$arg.html"
   else
-    mkdir -p "$HOME/sketches"; echo "$HOME/sketches/$arg.html"
+    d="$HOME/sketches${topic:+/$topic}"; mkdir -p "$d"; echo "$d/$arg.html"
   fi ;;
 check)
   f="$arg"; [[ -f "$f" ]] || { echo "no such file: $f"; exit 1; }
@@ -65,7 +70,14 @@ PY
   fi
   [[ $fail == 0 ]] && echo "lint: clean"
   if [[ -z "${SKETCH_NO_SHOT:-}" ]]; then
-    chrome="${SKETCH_CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
+    chrome="${SKETCH_CHROME:-}"
+    if [[ -z "$chrome" ]]; then
+      for c in "/Applications/Chromium.app/Contents/MacOS/Chromium" "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi" \
+               "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
+               "$(command -v chromium 2>/dev/null || true)" "$(command -v chromium-browser 2>/dev/null || true)"; do
+        [[ -n "$c" && -x "$c" ]] && { chrome="$c"; break; }
+      done
+    fi
     png="${f%.html}.png"
     if [[ -x "$chrome" ]]; then
       for scheme in light dark; do
@@ -77,9 +89,9 @@ PY
           --window-size="${SKETCH_WIDTH:-1280},${SKETCH_HEIGHT:-4200}" --screenshot="$out" "file://$(cd "$(dirname "$f")" && pwd)/$(basename "$f")" >/dev/null 2>&1 \
           && echo "shot: $out" || echo "shot failed ($scheme)"
       done
-    else echo "shot: skipped (no Chromium-family browser at $chrome; set SKETCH_CHROME)"; fi
+    else echo "shot: skipped (no Chromium-family browser found; set SKETCH_CHROME, or screenshot each figure in your CDP browser)"; fi
   fi
   [[ -z "${SKETCH_NO_OPEN:-}" ]] && open "$f"
   exit $fail ;;
-*) sed -n '2,6p' "$0"; exit 2 ;;
+*) sed -n '2,7p' "$0"; exit 2 ;;
 esac

@@ -14,7 +14,7 @@ Sets up a PR stack so every PR shows only its own changes, and tells you the exa
 ## Do this
 
 ```bash
-S=${SKILL_DIR:-~/.claude/skills/opening-a-stacked-pr-sequence}/stack.sh
+S=${CLAUDE_SKILL_DIR:-${SKILL_DIR:-~/.claude/skills/opening-a-stacked-pr-sequence}}/stack.sh
 $S plan add-login add-logout add-settings     # prints push + gh pr create lines, each based on the one below
 $S restack add-logout 123                     # after PR #123 merged: detects merge type, prints the fix
 $S restack add-logout b9097d2                 # same, with the lower PR's old tip SHA
@@ -53,7 +53,7 @@ Then `git push --force-with-lease origin <child>` (or plain push after the merge
 
 ## Visual explainer
 
-If you keep one, a page like `~/sketches/stacked-pr-squash-leak.html` helps: story, base-branch comparison, mock "Files changed" panels before/after, merge-button cards. Build it with `sketch` if you want it.
+If you keep one, a local page (`stacked-pr-squash-leak.html`) helps: story, base-branch comparison, mock "Files changed" panels before/after, merge-button cards. Build it with `building-a-local-html-visual-explainer` if you want it.
 
 ## Related
 
