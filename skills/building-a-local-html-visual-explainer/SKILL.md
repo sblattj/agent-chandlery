@@ -39,5 +39,5 @@ sketch-local-html-visual-explainer (old name), html visual of, glossary page wit
 
 ## Related
 
-- `explain-code-concept-from-source-with-snippets-and-handdrawn-svg`: text-first explanation of one term.
+- `explaining-a-code-concept-from-source`: text-first explanation of one term.
 - `making-a-narrated-ab-screenshot`: captions real browser captures; this skill draws diagrams.

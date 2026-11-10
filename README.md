@@ -57,7 +57,7 @@ npx github:sblattj/agent-chandlery goal set "make the test suite pass" --success
 |---|---|
 | [`querying-the-codebase-memory-graph`](skills/querying-the-codebase-memory-graph/SKILL.md) (alias `codebase-memory`) | Structural code questions over a code knowledge graph: callers, call chains, architecture. |
 | [`indexing-a-repo-into-codebase-memory`](skills/indexing-a-repo-into-codebase-memory/SKILL.md) (alias `cbm-index`) | Index a repo into that graph the right way: survey, fitted ignore file, full mode. |
-| [`explain-code-concept-from-source-with-snippets-and-handdrawn-svg`](skills/explain-code-concept-from-source-with-snippets-and-handdrawn-svg/SKILL.md) | Explain a code concept grounded in real snippets, with a diagram when it helps. |
+| [`explaining-a-code-concept-from-source`](skills/explaining-a-code-concept-from-source/SKILL.md) (alias `explain-code-concept-from-source-with-snippets-and-handdrawn-svg`, `explain-concept`) | Explain a code concept grounded in real snippets, with a diagram when it helps. |
 | [`building-a-local-html-visual-explainer`](skills/building-a-local-html-visual-explainer/SKILL.md) (alias `sketch-local-html-visual-explainer`, `sketch`) | A styled local HTML explainer with hand-drawn SVG diagrams, linted in light and dark. |
 | [`making-a-narrated-ab-screenshot`](skills/making-a-narrated-ab-screenshot/SKILL.md) (alias `narrated-screenshot`) | A self-explaining A/B screenshot with captions and a verdict. |
 | [`recording-a-narrated-ab-proof-video`](skills/recording-a-narrated-ab-proof-video/SKILL.md) (alias `narrated-ab-video`) | A narrated A/B proof video from recorded browser runs. |
