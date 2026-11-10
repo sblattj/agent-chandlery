@@ -56,6 +56,5 @@ What the script does:
 
 ## Related
 
-- `checking-what-blocks-my-github-prs-from-merging`: who still has to approve (CODEOWNERS gaps) before this can merge.
+- `checking-what-my-github-prs-need-and-from-whom`: who still has to approve (CODEOWNERS gaps) and which threads still await your reply.
 - `opening-a-stacked-pr-sequence`, `landing-stacked-github-prs`: after a lower stacked PR lands, restack the next one, then run this.
-- `checking-my-github-prs-for-activity-since-push`: which threads still await your reply.

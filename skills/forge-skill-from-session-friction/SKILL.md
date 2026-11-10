@@ -127,7 +127,7 @@ it defaults to read-only.
 
 ## Related
 
-- `checking-my-github-prs-for-activity-since-push`, `proving-a-bugfix-pr-red-to-green`, `fanning-out-a-verified-read-only-swarm` were all forged/hardened with this process
+- `checking-what-my-github-prs-need-and-from-whom`, `proving-a-bugfix-pr-red-to-green`, `fanning-out-a-verified-read-only-swarm` were all forged/hardened with this process
   and are good worked examples of the structure.
 - `auditing-skill-context-cost-from-session-logs`: the 600-char cap check and the probation-to-`on` promotion.
 - `ab-testing-whether-skills-still-trigger`: measure whether a trimmed or name-only description still fires.

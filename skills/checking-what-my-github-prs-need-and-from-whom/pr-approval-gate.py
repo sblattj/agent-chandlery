@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""pr-approval-gate.py (skill checking-what-blocks-my-github-prs-from-merging): what still blocks each of your open PRs from merging.
+"""pr-approval-gate.py (skill checking-what-my-github-prs-need-and-from-whom): what still blocks each of your open PRs from merging.
 
 Per PR: draft/ready, merge state (BEHIND, DIRTY...), current approvals, and every
 CODEOWNERS rule its files hit that no approver satisfies (last matching rule wins).
@@ -78,6 +78,17 @@ def owner_rule(rules, path):
             hit = rule
     return hit
 
+def latest_opinions(slug, number, cwd=None):
+    """Per-author latest APPROVED / CHANGES_REQUESTED from the full REST review list.
+    `gh pr list --json latestReviews` has been seen to drop a standing CHANGES_REQUESTED."""
+    pages = json.loads(gh(["api", f"repos/{slug}/pulls/{number}/reviews", "--paginate", "--slurp"], cwd=cwd))
+    reviews = [r for page in pages for r in page
+               if r.get("submitted_at") and r.get("user") and r["state"] in ("APPROVED", "CHANGES_REQUESTED")]
+    latest = {}
+    for r in sorted(reviews, key=lambda r: r["submitted_at"]):
+        latest[r["user"]["login"]] = r["state"]
+    return latest
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("target", nargs="?")
@@ -87,7 +98,7 @@ def main():
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
     slug, cwd = repo_slug(a.repo or a.target)
-    fields = "number,title,url,isDraft,baseRefName,headRefName,reviewDecision,mergeStateStatus,latestReviews,reviewRequests,files"
+    fields = "number,title,url,isDraft,baseRefName,headRefName,reviewDecision,mergeStateStatus,reviewRequests,files"
     prs = json.loads(gh(["pr", "list", "-R", slug, "--author", a.author, "--state", "open", "--limit", "200", "--json", fields], cwd=cwd))
     heads = {p["headRefName"] for p in prs}
     head_pr = {p["headRefName"]: p["number"] for p in prs}
@@ -96,8 +107,9 @@ def main():
     default = json.loads(gh(["repo", "view", slug, "--json", "defaultBranchRef"], cwd=cwd))["defaultBranchRef"]["name"]
     out = []
     for p in prs:
-        approvers = sorted({r["author"]["login"] for r in p["latestReviews"] if r["state"] == "APPROVED"})
-        changes = sorted({r["author"]["login"] for r in p["latestReviews"] if r["state"] == "CHANGES_REQUESTED"})
+        opinions = latest_opinions(slug, p["number"], cwd)
+        approvers = sorted(u for u, st in opinions.items() if st == "APPROVED")
+        changes = sorted(u for u, st in opinions.items() if st == "CHANGES_REQUESTED")
         # stacked PRs only reach the trunk later: judge owners against the trunk's CODEOWNERS
         ref = default if p["baseRefName"] in heads else p["baseRefName"]
         rules = load_codeowners(slug, ref)

@@ -78,7 +78,7 @@ gh api repos/$R/pulls/$PR/merge-async/$u --jq '.status+" "+(.details.message//""
 
 - Merging a stacked PR this way also merges every open PR **below** it, so only merge the layer you mean to land.
 - After each squash, the next layer is often DIRTY on files both touched (an ADR, a version list): merge base into it, resolve, push, wait for CI, then merge-async it.
-- Approvals survive base syncs in repos that don't dismiss stale reviews (check `required_pull_request_reviews.dismiss_stale_reviews` in branch protection). The real gate is often CODEOWNERS approval for each touched path, not the approval count (`checking-what-blocks-my-github-prs-from-merging` lists the gaps).
+- Approvals survive base syncs in repos that don't dismiss stale reviews (check `required_pull_request_reviews.dismiss_stale_reviews` in branch protection). The real gate is often CODEOWNERS approval for each touched path, not the approval count (`checking-what-my-github-prs-need-and-from-whom` lists the gaps).
 - To keep every open PR current with its base between landings, run a base-sync pass: merge the base into each open PR branch and push (plain merges, no force-push).
 
 ## Folding a stack that only works as a whole
@@ -120,5 +120,5 @@ When a reviewer merges each layer into its parent branch and only the bottom PR 
 ## Related
 
 - `opening-a-stacked-pr-sequence`: opening the stack (bases, merge order) and the per-merge-type restack fix (`stack.sh restack`).
-- `checking-what-blocks-my-github-prs-from-merging`: which code owners each layer still needs.
+- `checking-what-my-github-prs-need-and-from-whom`: which code owners each layer still needs.
 - `resolve-pr-threads-and-conflicts-and-merge`: landing one layer once its threads and approvals are done.

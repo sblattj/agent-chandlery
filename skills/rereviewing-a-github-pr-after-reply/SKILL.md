@@ -59,5 +59,4 @@ Then:
 
 ## Related
 
-- `checking-my-github-prs-for-activity-since-push`: the same question from the author side (activity on my own PRs).
-- `checking-what-blocks-my-github-prs-from-merging`: which code owners still have to approve.
+- `checking-what-my-github-prs-need-and-from-whom`: the same question from the author side (activity on my own PRs), plus which code owners still have to approve.

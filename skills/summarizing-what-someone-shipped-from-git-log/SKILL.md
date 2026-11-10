@@ -43,4 +43,4 @@ The script prints, per repo: identities matched, commits/day, no-merge churn tot
 ## Related
 
 - `snapshotting-shipped-work-since-a-date`: the same commits plus GitHub / Azure DevOps PRs, frozen into files for reconciling commitments.
-- `checking-my-github-prs-for-activity-since-push`: what happened on your open PRs since you last pushed.
+- `checking-what-my-github-prs-need-and-from-whom`: what happened on your open PRs since you last pushed, and who they still need.
