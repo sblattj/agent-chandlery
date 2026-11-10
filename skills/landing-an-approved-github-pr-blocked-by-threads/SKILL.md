@@ -1,6 +1,6 @@
 ---
 name: landing-an-approved-github-pr-blocked-by-threads
-description: "Land an approved GitHub PR that is still BLOCKED, end to end: reply to and resolve every open review thread, update or fix a stale or conflicting branch, then merge (auto-merge if blocked) and wait until MERGED. Refuses with 0 approvals. Triggers on: merge this PR, resolve the threads and merge, base branch policy prohibits the merge, BLOCKED with approvals, conversation resolution required, BLOCKED again after update, get this PR merged, land the PR."
+description: "Land an approved GitHub PR that is still BLOCKED, end to end: reply to and resolve every open review thread, update or fix a stale or conflicting branch, then merge (auto-merge if blocked) and wait until MERGED. Refuses with 0 approvals or a standing changes-request. Triggers on: merge this PR, resolve the threads and merge, base branch policy prohibits the merge, BLOCKED with approvals, conversation resolution required, BLOCKED again after update, get this PR merged, land the PR."
 ---
 
 ## More triggers
@@ -9,7 +9,7 @@ resolve-pr-threads-and-conflicts-and-merge (old name), approved but can't merge,
 
 # Land an approved PR blocked by threads
 
-One script takes an approved PR from BLOCKED to MERGED, and never merges one with 0 approvals. Needs `zsh`, `gh` and `jq`.
+One script takes an approved PR from BLOCKED to MERGED, and never merges one with 0 approvals or a standing changes-request. Needs `zsh`, `gh` and `jq`.
 
 ## Do this
 
@@ -28,13 +28,13 @@ Exit codes:
 - 3: conflicts
 - 4: not merged within `--wait`
 - 5: draft, closed or bad arguments
-- 6: no approval yet
+- 6: no approval yet, or someone's changes-request still stands
 
 What the script does:
 1. **Conflicting (exit 3):** stops. Merge the base into the branch in a worktree (never rebase a shared branch), resolve, run the module's tests, push, rerun.
 2. **BEHIND:** runs `gh pr update-branch`.
 3. **Threads:** posts each reply and resolves the thread. It also resolves a thread whose last comment is already yours. For any other thread it stops with exit 2. Draft a reply per thread (what changed, with the commit link, or the reason it's a follow-up), get the user's OK on the text if they haven't seen it, then rerun with `--replies`.
-4. **Approval gate (exit 6):** with no standing approval from someone other than the author (latest APPROVED / CHANGES_REQUESTED per person, from the REST review list), it stops before merging or arming auto-merge. Green CI alone never lands a PR.
+4. **Approval gate (exit 6):** with no standing approval from someone other than the author, or any standing CHANGES_REQUESTED even next to an approval (latest APPROVED / CHANGES_REQUESTED per person, from the REST review list), it stops before merging or arming auto-merge. Green CI alone never lands a PR.
 5. **Merge:** tries a direct merge with the repo's allowed method (it reads `allow_squash_merge`, then merge, then rebase). If refused, it arms `--auto` and polls. On timeout it prints the failing and pending checks plus `reviewDecision`.
 
 ## Why it's built this way (friction mined)

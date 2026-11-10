@@ -3,7 +3,7 @@
 # Usage: land.sh <pr> [-R owner/repo] [--replies replies.json] [--resolve-unreplied] [--wait SECS=600] [--dry-run]
 #   replies.json: [{"cid":"<first comment databaseId of the thread>","body":"markdown"}]
 # Exit: 0 merged (or armed with --wait 0) | 2 unresolved threads with no reply | 3 conflicts | 4 not merged in time | 5 bad state
-#       6 no approval yet (never merges or arms auto-merge on green CI alone)
+#       6 no approval yet, or a standing changes-request (never merges or arms auto-merge on green CI alone)
 set -euo pipefail
 PR=${1:-}; [[ $PR == <-> ]] || { sed -n "2,6p" $0; exit 5; }; shift; R=""; REPLIES=""; FORCE=0; WAIT=600; DRY=0
 while (( $# )); do case $1 in
@@ -47,7 +47,10 @@ done
 
 # 3. approval gate: each person's latest APPROVED / CHANGES_REQUESTED from the full REST list (not latestReviews), author excluded
 author=$(jq -r .author.login <<<$s)
-appr=$(retry gh api repos/$R/pulls/$PR/reviews --paginate --slurp | jq -r --arg a "$author" '[.[][] | select(.user and .submitted_at and .user.login != $a and (.state == "APPROVED" or .state == "CHANGES_REQUESTED"))] | sort_by(.submitted_at) | group_by(.user.login) | map(last | select(.state == "APPROVED") | .user.login) | join(" ")')
+latest=$(retry gh api repos/$R/pulls/$PR/reviews --paginate --slurp | jq -c --arg a "$author" '[.[][] | select(.user and .submitted_at and .user.login != $a and (.state == "APPROVED" or .state == "CHANGES_REQUESTED"))] | sort_by(.submitted_at) | group_by(.user.login) | map(last | {login: .user.login, state})')
+appr=$(jq -r 'map(select(.state == "APPROVED") | .login) | join(" ")' <<<$latest)
+cr=$(jq -r 'map(select(.state == "CHANGES_REQUESTED") | .login) | join(" ")' <<<$latest)
+[[ -z $cr ]] || { say "CHANGES REQUESTED by: $cr (standing; refusing to merge or arm auto-merge until they re-review)"; exit 6; }
 [[ -n $appr ]] || { say "NO APPROVAL: refusing to merge or arm auto-merge on green CI alone; get 1+ approval, then rerun"; exit 6; }
 say "approved by: $appr"
 
