@@ -16,7 +16,7 @@ Needs the `cdp` CLI from the `cdp-toolkit` package on PATH, and a browser with i
 ## Do this
 
 ```bash
-S=${SKILL_DIR:-~/.claude/skills/diffing-web-app-aria-snapshots-a-vs-b}/snap.py
+S=${CLAUDE_SKILL_DIR:-${SKILL_DIR:-~/.claude/skills/diffing-web-app-aria-snapshots-a-vs-b}}/snap.py
 python3 $S http://localhost:5181 out/A /overview /agents /settings --api '^/(api|service)/'
 python3 $S http://localhost:5182 out/B /overview /agents /settings --api '^/(api|service)/'
 python3 $S --diff out/A out/B        # per route: same / DIFF + unified diff; exit 1 on any diff
