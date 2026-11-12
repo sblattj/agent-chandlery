@@ -1,0 +1,7 @@
+{
+  "name": "narrated-ab-proof-video",
+  "private": true,
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}
