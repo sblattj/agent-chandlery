@@ -6,7 +6,8 @@
 #   show                        open the VM's window on the Mac (a VM started by vmrun/up runs windowless)
 #   up                          start the VM if stopped and wait (<=5 min) until guest exec answers
 #   down                        suspend the VM (frees its RAM)
-#   pkg [spec]                  stage a PUBLISHED package instead of the checkout: npm pack <spec> (or $WIN_PKG_SPEC)
+#   pkg [spec]                  stage a PUBLISHED package instead of the checkout: npm pack <spec> (or $WIN_PKG_SPEC);
+#                               extra pack flags in $WIN_NPM_PACK_FLAGS, e.g. --min-release-age=0 for a release younger than your npm age gate
 #                               from $WIN_NPM_REGISTRY (else public npm). Auth by registry host: Azure Artifacts
 #                               (Azure DevOps pkgs host) -> az token, GitHub Packages -> gh token, else your ~/.npmrc.
 #                               Installs prod deps, syncs to Y:\fw-src. Then: win.sh kiro agent
@@ -116,7 +117,7 @@ case ${1:-status} in
         esac
         { [ -n "$scope" ] && echo "$scope:registry=https:$feed" || echo "registry=https:$feed"; [ -n "$tok" ] && echo "$feed:_authToken=$tok"; } >"$uc"; tok=
       fi
-      (cd "$d" && npm pack "$spec" --userconfig "$uc" >/dev/null && tar xzf ./*.tgz); rc=$?; [ "$uc" = "$d/.npmrc" ] && rm -f "$uc"
+      (cd "$d" && npm pack "$spec" --userconfig "$uc" ${WIN_NPM_PACK_FLAGS:-} >/dev/null && tar xzf ./*.tgz); rc=$?; [ "$uc" = "$d/.npmrc" ] && rm -f "$uc"
       [ $rc = 0 ] || { rm -rf "$d"; echo "npm pack $spec failed (registry ${reg:-default}; Azure: az login, GitHub: gh auth)"; exit 1; }
       echo "packed $(cd "$d/package" && node -p 'require("./package.json").name+"@"+require("./package.json").version')"
       (cd "$d/package" && if command -v bun >/dev/null; then bun install --production; elif command -v pnpm >/dev/null; then pnpm install --prod; else npm install --omit=dev; fi) 2>&1 | tail -1
