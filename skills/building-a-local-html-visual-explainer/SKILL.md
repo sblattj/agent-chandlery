@@ -41,3 +41,4 @@ sketch-local-html-visual-explainer (old name), html visual of, glossary page wit
 
 - `explaining-a-code-concept-from-source`: text-first explanation of one term.
 - `making-a-narrated-ab-screenshot`: captions real browser captures; this skill draws diagrams.
+- `serving-a-live-call-explainer-page-with-load-more-updates`: a page that grows during a live call (newest-first sections, SSE push behind a load button). Same taste rules: a goal-driven live page shipped with Chalkboard / Marker Felt / Bradley Hand and had to be switched to the system font mid-call.
