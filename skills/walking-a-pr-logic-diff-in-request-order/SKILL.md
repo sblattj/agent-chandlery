@@ -47,5 +47,5 @@ GitHub shows a PR file by file, alphabetically, tests mixed in. This shows only 
 ## Related
 
 - When the PR is gated by a feature flag, build a base / flag-off / flag-on table from the actual diff and put it in `live`.
-- `explaining-a-code-concept-from-source`: deeper explanation of a term a note mentions.
+- `building-a-local-html-visual-explainer`: deeper explanation (quick mode) of a term a note mentions.
 - `proving-a-bugfix-pr-red-to-green`: proving the live-impact rows with A/B runs.

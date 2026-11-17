@@ -78,6 +78,9 @@ test("renamed skills resolve from their old short names, including chained renam
     "pr-ab-evidence": "proving-a-bugfix-pr-red-to-green",
     "sketch": "building-a-local-html-visual-explainer",
     "sketch-local-html-visual-explainer": "building-a-local-html-visual-explainer",
+    "explain-concept": "building-a-local-html-visual-explainer",
+    "explain-code-concept-from-source-with-snippets-and-handdrawn-svg": "building-a-local-html-visual-explainer",
+    "explaining-a-code-concept-from-source": "building-a-local-html-visual-explainer",
     "work-overview": "summarizing-what-someone-shipped-from-git-log",
     "work-overview-from-git-log": "summarizing-what-someone-shipped-from-git-log",
   };
