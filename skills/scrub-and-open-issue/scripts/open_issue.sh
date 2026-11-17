@@ -87,7 +87,7 @@ title="$(cat "$title_file")"
 [[ -n "$title" ]] || die "empty title."
 
 create_args=(-R "$repo" --title "$title" --body-file "$body_file")
-for l in "${labels[@]}"; do create_args+=(--label "$l"); done
+for l in ${labels[@]+"${labels[@]}"}; do create_args+=(--label "$l"); done
 
 url="$(GH_TOKEN="$token" gh issue create "${create_args[@]}")"
 echo "Created: $url"
